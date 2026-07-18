@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gruß</title>
+  <style>
+    :root {
+      --bg: #0e0f14;
+      --card: #151826;
+      --text: #e6e7ee;
+      --muted: #a8adbd;
+      --accent: #4c7cf3;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: Inter, sans-serif;
+      background: radial-gradient(1200px 800px at 70% -20%, #1e2030, #0e0f14);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    section {
+      background: var(--card);
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+    h1 { margin-top: 0; }
+    p { margin: 1rem 0; font-size: 1.2rem; }
+    form {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    input {
+      padding: 0.5rem;
+      border-radius: 0.5rem;
+      border: 1px solid var(--muted);
+      font-size: 1rem;
+    }
+    button {
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      padding: 0.7rem;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover { background: #365ed4; }
+  </style>
+</head>
+<body>
+  <section>
+    <h1>Willkommen</h1>
+    <p id="greeting">Hallo!</p>
+    <form id="greetForm">
+      <label for="name">Dein Name</label>
+      <input id="name" type="text" placeholder="Vorname" autocomplete="off" />
+      <button type="submit">Grüßen</button>
+    </form>
+  </section>
+  <script>
+    const form = document.getElementById("greetForm");
+    const input = document.getElementById("name");
+    const greeting = document.getElementById("greeting");
+
+    form.addEventListener("submit", function(e) {
+      e.preventDefault();
+      const name = input.value.trim();
+      if (name) {
+        greeting.textContent = `Hallo, ${name}! Schön dich zu sehen.`;
+      } else {
+        greeting.textContent = "Hallo!";
+      }
+      input.value = "";
+    });
+  </script>
+</body>
+</html>

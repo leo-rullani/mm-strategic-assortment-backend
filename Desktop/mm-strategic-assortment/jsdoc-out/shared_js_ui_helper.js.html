@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: shared/js/ui_helper.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: shared/js/ui_helper.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * Stops the propagation of the given event.
+ * @param {Event} event - The event to stop propagation for.
+ */
+function stopProp(event) {
+    event.stopPropagation()
+}
+
+/**
+ * Prevents the default action of the given event.
+ * @param {Event} event - The event to prevent default on.
+ */
+function prevDef(event) {
+    event.preventDefault();
+}
+
+/**
+ * Closes a dialog by adding the 'd_none' class to hide it.
+ * @param {string} id - The ID of the dialog element to close.
+ */
+function closeDialog(id) {
+    let dialogref = document.getElementById(id);
+    dialogref.classList.add('d_none');
+}
+
+/**
+ * Resets all dialogs marked as currently active by setting their 'current_dialog' attribute to 'false'.
+ */
+function resetCurrentDialogs() {
+    const dialogElements = document.querySelectorAll('[current_dialog="true"]');
+    dialogElements.forEach(el => {
+      el.setAttribute('current_dialog', 'false');
+    });
+}
+
+/**
+ * Toggles the 'open' attribute of an element between 'true' and 'false'.
+ * @param {HTMLElement} element - The element to toggle.
+ */
+function toggleOpen(element) {
+    const isOpen = element.getAttribute('open') === 'true';
+    element.setAttribute('open', !isOpen);
+}
+
+/**
+ * Toggles the 'open' attribute of the element with the specified ID between 'true' and 'false'.
+ * @param {string} id - The ID of the element to toggle.
+ */
+function toggleOpenId(id) {
+    const element = document.getElementById(id)
+    const isOpen = element.getAttribute('open') === 'true';
+    element.setAttribute('open', !isOpen);
+}
+
+/**
+ * Closes the element with the specified ID by setting its 'open' attribute to 'false'.
+ * @param {string} id - The ID of the element to close.
+ */
+function closeOpenId(id) {
+    const element = document.getElementById(id)
+    element.setAttribute('open', 'false');
+}
+
+/**
+ * Sets or clears the error attribute on an element by ID.
+ * @param {boolean} valid - Whether the input is valid (true means no error).
+ * @param {string} id - The ID of the element to set the error attribute on.
+ */
+function setError(valid, id) {
+    document.getElementById(id).setAttribute("error", valid)
+}
+
+/**
+ * Returns the initials of a given full name.
+ * Works with one‑part or multi‑part names and is null‑safe.
+ *
+ * @param {string} fullname – e.g. "John Doe"   |  "Madonna" | ""
+ * @returns {string} e.g. "JD", "M", "?"
+ */
+function getInitials(fullname) {
+    if (!fullname || typeof fullname !== "string") {
+        return "?";
+    }
+
+    const parts = fullname.trim().split(/\s+/).filter(Boolean);
+
+    if (parts.length === 0) {
+        return "?";
+    }
+
+    if (parts.length === 1) {
+        return parts[0][0].toUpperCase();
+    }
+
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+/**
+ * Toggles the "active" class on the given element.
+ * @param {HTMLElement} element - The element to toggle the class on.
+ */
+function toggleSwitch(element) {
+    element.classList.toggle("active");
+}
+
+/**
+ * Toggles the visibility of a password input field and updates the icon accordingly.
+ * @param {HTMLElement} icon - The icon element that was clicked to toggle password visibility.
+ */
+function togglePassword(icon) {
+    const container = icon.closest(".form_group_w_icon_wo_label");
+    const input = container.querySelector("input[type='password'], input[type='text']");
+
+    if (input) {
+        if (input.type === "password") {
+            input.type = "text";
+            icon.src = "../../assets/icons/pw_visibility_off.svg"; 
+        } else {
+            input.type = "password";
+            icon.src = "../../assets/icons/pw_visibility.svg";
+        }
+    }
+}
+
+/**
+ * Toggles the visibility of a dropdown menu.
+ * Closes all other open dropdowns before toggling the target dropdown.
+ * @param {HTMLElement} button - The button that triggers the dropdown toggle.
+ * @param {Event} event - The event object associated with the toggle action.
+ */
+function toggleDropdown(button, event) {
+    closeAllDropdowns(event)
+    const dropdown = button.closest(".dropdown");
+    dropdown.classList.toggle("open");
+}
+
+/**
+ * Closes all open dropdown menus except the one that contains the event target.
+ * @param {Event} event - The event to check against dropdown contents.
+ */
+function closeAllDropdowns(event) {
+    document.querySelectorAll('.dropdown.open').forEach(dropdown => {
+        if (!dropdown.contains(event.target)) {
+            dropdown.classList.remove('open');
+        }
+    });
+}
+
+/**
+ * Recursively extracts error messages from a nested error object.
+ * @param {Object} errorObject - The error object to extract messages from.
+ * @returns {Array} An array of error message strings.
+ */
+function extractErrorMessages(errorObject) {
+    let errorMessages = [];
+
+    for (let key in errorObject) {
+        if (errorObject.hasOwnProperty(key)) {
+            const value = errorObject[key];
+            if (typeof value === 'object' &amp;&amp; value !== null) {
+                errorMessages = errorMessages.concat(extractErrorMessages(value));
+            } else if (Array.isArray(value)) {
+                errorMessages = errorMessages.concat(value);
+            } else {
+                errorMessages.push(value);
+            }
+        }
+    }
+
+    return errorMessages;
+}
+
+/**
+ * Shows a temporary toast message on the screen.
+ * Automatically removes the toast after 2.5 seconds.
+ * @param {boolean} [error=true] - Whether the toast represents an error.
+ * @param {Array&lt;string>} [msg=[]] - The message(s) to display in the toast.
+ */
+function showToastMessage(error = true, msg = []) {
+    const toast = document.createElement('div');
+    toast.className = 'toast_msg d_flex_cc_gm pad_s';
+    toast.innerHTML = getToastHTML(msg, error);
+    toast.setAttribute('error', error);
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+        toast.remove();
+    }, 2500);
+}
+
+/**
+ * Shows a persistent toast message that remains until explicitly removed.
+ * Updates or creates a global toast element with the given HTML content.
+ * @param {boolean} [error=true] - Whether the toast represents an error.
+ * @param {string} [html=""] - The HTML content to display inside the toast.
+ */
+let globalToast = null;
+
+function showToastLastingMessage(error = true, html = "") {
+    if (!globalToast) {
+        globalToast = document.createElement('div');
+        globalToast.className = 'toast_msg d_flex_cc_gm pad_s';
+        document.body.appendChild(globalToast);
+    }
+    globalToast.innerHTML = `&lt;div class="toast_msg_left d_flex_cc_gm">
+            &lt;/div>
+            &lt;div class="toast_msg_right">
+                    ${html}
+            &lt;/div>`;
+    globalToast.setAttribute('error', error);
+}
+
+/**
+ * Removes the persistent global toast message from the DOM if it exists.
+ */
+function deleteLastingToast() {
+    if (globalToast) {
+        globalToast.remove();
+        globalToast = null;
+    }
+}
+
+/**
+ * Generates the HTML content for a toast message.
+ * Displays a success or error header and a list of messages.
+ * @param {Array&lt;string>} msg - Array of message strings to display.
+ * @param {boolean} error - Indicates if the toast is for an error (true) or success (false).
+ * @returns {string} The HTML string for the toast content.
+ */
+function getToastHTML(msg, error) {
+    let msglist = "";
+    if (msg.length &lt;= 0) {
+        msglist = error ? "&lt;li>An error has occurred&lt;/li>" : "&lt;li>That worked!&lt;/li>"
+    }
+    for (let i = 0; i &lt; msg.length; i++) {
+        msglist += `&lt;li>${msg[i]}&lt;/li>`
+    }
+
+    return `&lt;div class="toast_msg_left d_flex_cc_gm">
+            &lt;/div>
+            &lt;div class="toast_msg_right">
+                &lt;h3 error="false">Success&lt;/h3>
+                &lt;h3 error="true">Error&lt;/h3>
+                &lt;ul class="w_full">
+                    ${msglist}
+                &lt;/ul>
+            &lt;/div>`
+}
+
+/**
+ * Calculates and returns a human-readable string representing the time difference
+ * between the current time and a given timestamp.
+ * @param {string|number|Date} timestamp - The timestamp to compare against the current time.
+ * @returns {string} A string like "2 hours ago" or "just now" ("gerade eben").
+ */
+function timeDifference(timestamp) {
+    const time = new Date(timestamp);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now - time) / 1000);
+
+    const units = [
+        { single_name: "year", plural_name: "years", seconds: 31536000 },
+        { single_name: "month", plural_name: "months", seconds: 2592000 },
+        { single_name: "day", plural_name: "days", seconds: 86400 },
+        { single_name: "hour", plural_name: "hours", seconds: 3600 },
+        { single_name: "minute", plural_name: "minutes", seconds: 60 },
+        { single_name: "second", plural_name: "seconds", seconds: 1 }
+    ];
+
+    for (let unit of units) {
+        const count = Math.floor(diffInSeconds / unit.seconds);
+        if (count >= 1) {
+            return `${count} ${count > 1 ? unit.plural_name : unit.single_name} ago`;
+        }
+    }
+    return "gerade eben";
+}
+
+/**
+ * Retrieves the value of a query parameter from the current URL.
+ * @param {string} param - The name of the URL parameter to retrieve.
+ * @returns {string|null} The value of the parameter or null if not found.
+ */
+function getParamFromUrl(param) {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get(param);
+}
+
+/**
+ * Redirects the user to the dashboard if authenticated,
+ * otherwise redirects to the login page.
+ * On boards pages, block only automatic redirects; allow manual clicks.
+ */
+function redirectToDashboard(manual = false) {
+  const p = (window.location &amp;&amp; window.location.pathname) || '';
+
+  // Block NUR Auto-Redirects auf Boards/Board-Seiten
+  if (!manual &amp;&amp; (p.includes('/pages/boards') || p.includes('/boards') || p.includes('/pages/board') || p.includes('/board'))) {
+    return;
+  }
+
+  if (getAuthUserId()) {
+    window.location.href = "../../pages/dashboard/";
+  } else {
+    window.location.href = "../../pages/auth/login.html";
+  }
+}
+
+// manual clicks
+function goDashboard() {
+  return redirectToDashboard(true);
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#API_BASE_URL">API_BASE_URL</a></li><li><a href="global.html#BOARDS_URL">BOARDS_URL</a></li><li><a href="global.html#DEFAULT_END">DEFAULT_END</a></li><li><a href="global.html#DEFAULT_LOCATION">DEFAULT_LOCATION</a></li><li><a href="global.html#DEFAULT_START">DEFAULT_START</a></li><li><a href="global.html#GFX_MANUAL_URL">GFX_MANUAL_URL</a></li><li><a href="global.html#GUEST_LOGIN">GUEST_LOGIN</a></li><li><a href="global.html#IMG_PATH">IMG_PATH</a></li><li><a href="global.html#LOGIN_URL">LOGIN_URL</a></li><li><a href="global.html#MAIL_CHECK_URL">MAIL_CHECK_URL</a></li><li><a href="global.html#REGISTER_URL">REGISTER_URL</a></li><li><a href="global.html#STORE_KEY">STORE_KEY</a></li><li><a href="global.html#TASKS_ASSIGNED_URL">TASKS_ASSIGNED_URL</a></li><li><a href="global.html#TASKS_REVIEWER_URL">TASKS_REVIEWER_URL</a></li><li><a href="global.html#TASKS_URL">TASKS_URL</a></li><li><a href="global.html#THRESHOLD">THRESHOLD</a></li><li><a href="global.html#boardCreateCheckMailAddress">boardCreateCheckMailAddress</a></li><li><a href="global.html#boardCreateInviteMember">boardCreateInviteMember</a></li><li><a href="global.html#boardCreateSubmit">boardCreateSubmit</a></li><li><a href="global.html#boardList">boardList</a></li><li><a href="global.html#boardSettingsCheckMailAddress">boardSettingsCheckMailAddress</a></li><li><a href="global.html#boardSettingsInviteMember">boardSettingsInviteMember</a></li><li><a href="global.html#buildTaskPdfHtml">buildTaskPdfHtml</a></li><li><a href="global.html#cancelCreateBoard">cancelCreateBoard</a></li><li><a href="global.html#checkMailAddress">checkMailAddress</a></li><li><a href="global.html#closeAllDropdowns">closeAllDropdowns</a></li><li><a href="global.html#closeDialog">closeDialog</a></li><li><a href="global.html#closeOpenId">closeOpenId</a></li><li><a href="global.html#closeOtherMenuBtns">closeOtherMenuBtns</a></li><li><a href="global.html#createBoard">createBoard</a></li><li><a href="global.html#createHeaders">createHeaders</a></li><li><a href="global.html#currenTaskFilter">currenTaskFilter</a></li><li><a href="global.html#currentAssignedTickets">currentAssignedTickets</a></li><li><a href="global.html#currentBoards">currentBoards</a></li><li><a href="global.html#currentCreateBoard">currentCreateBoard</a></li><li><a href="global.html#currentReviewerTickets">currentReviewerTickets</a></li><li><a href="global.html#currentSettingsBoard">currentSettingsBoard</a></li><li><a href="global.html#deleteBoard">deleteBoard</a></li><li><a href="global.html#deleteData">deleteData</a></li><li><a href="global.html#deleteLastingToast">deleteLastingToast</a></li><li><a href="global.html#downloadDebriefingPdf">downloadDebriefingPdf</a></li><li><a href="global.html#drawPieChart">drawPieChart</a></li><li><a href="global.html#drawWaveChart">drawWaveChart</a></li><li><a href="global.html#escapeHtml">escapeHtml</a></li><li><a href="global.html#exportTaskPdfFromCard">exportTaskPdfFromCard</a></li><li><a href="global.html#extractErrorMessages">extractErrorMessages</a></li><li><a href="global.html#formatDate">formatDate</a></li><li><a href="global.html#formatDateNice">formatDateNice</a></li><li><a href="global.html#getAndRenderBoardList">getAndRenderBoardList</a></li><li><a href="global.html#getAndRenderRequestList">getAndRenderRequestList</a></li><li><a href="global.html#getAssignedTasks">getAssignedTasks</a></li><li><a href="global.html#getAuthEmail">getAuthEmail</a></li><li><a href="global.html#getAuthFullname">getAuthFullname</a></li><li><a href="global.html#getAuthToken">getAuthToken</a></li><li><a href="global.html#getAuthUser">getAuthUser</a></li><li><a href="global.html#getAuthUserId">getAuthUserId</a></li><li><a href="global.html#getBoardById">getBoardById</a></li><li><a href="global.html#getBoardCardMoveBtnTemplate">getBoardCardMoveBtnTemplate</a></li><li><a href="global.html#getBoardCardTemplate">getBoardCardTemplate</a></li><li><a href="global.html#getBoardlistEntrieTemplate">getBoardlistEntrieTemplate</a></li><li><a href="global.html#getBoards">getBoards</a></li><li><a href="global.html#getData">getData</a></li><li><a href="global.html#getDetailTaskPersonTemplate">getDetailTaskPersonTemplate</a></li><li><a href="global.html#getErrorMessage">getErrorMessage</a></li><li><a href="global.html#getFormData">getFormData</a></li><li><a href="global.html#getHeaderTemplate">getHeaderTemplate</a></li><li><a href="global.html#getInitials">getInitials</a></li><li><a href="global.html#getLogedInHeaderTemplate">getLogedInHeaderTemplate</a></li><li><a href="global.html#getMemberListTemplate">getMemberListTemplate</a></li><li><a href="global.html#getNearestDueDateTask">getNearestDueDateTask</a></li><li><a href="global.html#getParamFromUrl">getParamFromUrl</a></li><li><a href="global.html#getPdfCss">getPdfCss</a></li><li><a href="global.html#getPieChartData">getPieChartData</a></li><li><a href="global.html#getRequestListEntryTemplate">getRequestListEntryTemplate</a></li><li><a href="global.html#getReviewerTasks">getReviewerTasks</a></li><li><a href="global.html#getSingleCommmentTemplate">getSingleCommmentTemplate</a></li><li><a href="global.html#getSingleTaskTemplate">getSingleTaskTemplate</a></li><li><a href="global.html#getTaskCreateMemberListEntrieTemplate">getTaskCreateMemberListEntrieTemplate</a></li><li><a href="global.html#getTaskListTemplate">getTaskListTemplate</a></li><li><a href="global.html#getToastHTML">getToastHTML</a></li><li><a href="global.html#globalToast">globalToast</a></li><li><a href="global.html#guestLogin">guestLogin</a></li><li><a href="global.html#hydrateFromStorage">hydrateFromStorage</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initPortfolioMarquee">initPortfolioMarquee</a></li><li><a href="global.html#isLoadingTasks">isLoadingTasks</a></li><li><a href="global.html#isSflDebriefBoard">isSflDebriefBoard</a></li><li><a href="global.html#loadHtml2Pdf">loadHtml2Pdf</a></li><li><a href="global.html#logIn">logIn</a></li><li><a href="global.html#logInSubmit">logInSubmit</a></li><li><a href="global.html#logOut">logOut</a></li><li><a href="global.html#openBoardCreateDialog">openBoardCreateDialog</a></li><li><a href="global.html#openBoardDeleteToast">openBoardDeleteToast</a></li><li><a href="global.html#openBoardSettingsDialog">openBoardSettingsDialog</a></li><li><a href="global.html#patchBoardSettingsMembers">patchBoardSettingsMembers</a></li><li><a href="global.html#patchData">patchData</a></li><li><a href="global.html#persistStatus">persistStatus</a></li><li><a href="global.html#postData">postData</a></li><li><a href="global.html#prevDef">prevDef</a></li><li><a href="global.html#readCssVars">readCssVars</a></li><li><a href="global.html#redirectToBoard">redirectToBoard</a></li><li><a href="global.html#redirectToBoardWTask">redirectToBoardWTask</a></li><li><a href="global.html#redirectToBoards">redirectToBoards</a></li><li><a href="global.html#redirectToDashboard">redirectToDashboard</a></li><li><a href="global.html#registration">registration</a></li><li><a href="global.html#removeAuthCredentials">removeAuthCredentials</a></li><li><a href="global.html#removeBoardSettingsMember">removeBoardSettingsMember</a></li><li><a href="global.html#removeCurrentMember">removeCurrentMember</a></li><li><a href="global.html#renderBoardList">renderBoardList</a></li><li><a href="global.html#renderBoardSettingsDialog">renderBoardSettingsDialog</a></li><li><a href="global.html#renderBoardSettingsMemberList">renderBoardSettingsMemberList</a></li><li><a href="global.html#renderCreateDialogMemberList">renderCreateDialogMemberList</a></li><li><a href="global.html#renderDashboard">renderDashboard</a></li><li><a href="global.html#renderMemberAndTaskCount">renderMemberAndTaskCount</a></li><li><a href="global.html#renderRequestList">renderRequestList</a></li><li><a href="global.html#renderStatusBtn">renderStatusBtn</a></li><li><a href="global.html#renderStatusTable">renderStatusTable</a></li><li><a href="global.html#renderTaskList">renderTaskList</a></li><li><a href="global.html#renderUrgentTask">renderUrgentTask</a></li><li><a href="global.html#renderWelcomeMessage">renderWelcomeMessage</a></li><li><a href="global.html#requestList">requestList</a></li><li><a href="global.html#resetCurrentDialogs">resetCurrentDialogs</a></li><li><a href="global.html#resetMailError">resetMailError</a></li><li><a href="global.html#safePreview">safePreview</a></li><li><a href="global.html#sampleRequests">sampleRequests</a></li><li><a href="global.html#sanitizeFilename">sanitizeFilename</a></li><li><a href="global.html#setAuthCredentials">setAuthCredentials</a></li><li><a href="global.html#setDashboardData">setDashboardData</a></li><li><a href="global.html#setError">setError</a></li><li><a href="global.html#setHeader">setHeader</a></li><li><a href="global.html#setHeaderTemplate">setHeaderTemplate</a></li><li><a href="global.html#setNewBoardTitle">setNewBoardTitle</a></li><li><a href="global.html#setStatus">setStatus</a></li><li><a href="global.html#showToastMessage">showToastMessage</a></li><li><a href="global.html#signUpSubmit">signUpSubmit</a></li><li><a href="global.html#signUpValues">signUpValues</a></li><li><a href="global.html#stopProp">stopProp</a></li><li><a href="global.html#timeDifference">timeDifference</a></li><li><a href="global.html#toggleBoardTitleEdit">toggleBoardTitleEdit</a></li><li><a href="global.html#toggleDropdown">toggleDropdown</a></li><li><a href="global.html#toggleOpen">toggleOpen</a></li><li><a href="global.html#toggleOpenId">toggleOpenId</a></li><li><a href="global.html#togglePassword">togglePassword</a></li><li><a href="global.html#toggleSwitch">toggleSwitch</a></li><li><a href="global.html#toggleTicketsTypeSwitch">toggleTicketsTypeSwitch</a></li><li><a href="global.html#updateBoard">updateBoard</a></li><li><a href="global.html#validateBoardTitle">validateBoardTitle</a></li><li><a href="global.html#validateConfirmPW">validateConfirmPW</a></li><li><a href="global.html#validateEmail">validateEmail</a></li><li><a href="global.html#validateFullname">validateFullname</a></li><li><a href="global.html#validateLoginPW">validateLoginPW</a></li><li><a href="global.html#validateMemberEmail">validateMemberEmail</a></li><li><a href="global.html#validatePW">validatePW</a></li><li><a href="global.html#validatePrivacyCheckbox">validatePrivacyCheckbox</a></li><li><a href="global.html#validateRegistrationEmail">validateRegistrationEmail</a></li><li><a href="global.html#validateSignUp">validateSignUp</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Fri Aug 15 2025 17:41:07 GMT+0200 (Mitteleuropäische Sommerzeit)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

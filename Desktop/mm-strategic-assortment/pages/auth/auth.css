@@ -1,0 +1,56 @@
+body {
+    background-color: var(--bg-color-dark);
+    background-image: url('../../assets/icons/login_background.svg');
+    background-repeat: no-repeat;
+    background-position: 100% 100%;
+}
+
+.login_error {
+    color: var(--form-input-error-border-color);
+    font-size: 14px !important;
+    display: none;
+}
+
+.login_error[error="true"] {
+    display: block;
+}
+
+/* ───────── Mouse-Trail – Soft Square Style ───────── */
+
+#xy {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+}
+
+#xy.idle {          /* wird per JS gesetzt, sobald Maus ruht */
+    opacity: 0;
+}
+
+.trail-wrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+}
+
+.trail-wrapper img {
+    position: absolute;
+    width: 200px;       /* quadratisch */
+    height: 200px;
+    object-fit: cover;
+    border-radius: 12px;      /* weiche Kanten */
+    opacity: 1;               /* volle Deckkraft */
+    /* Neutraler, sehr weicher Schlagschatten für „Soft Edge“ */
+    filter: drop-shadow(0 0 6px rgba(0, 0, 0, 0.25));
+    /* kein Blend-Mode mehr, damit keine Farbrahmen entstehen */
+    transition: transform 0.6s ease;
+}
+
+.trail-wrapper img:nth-child(1) { z-index: 5; }
+.trail-wrapper img:nth-child(2) { z-index: 4; }
+.trail-wrapper img:nth-child(3) { z-index: 3; }
+.trail-wrapper img:nth-child(4) { z-index: 2; }
+.trail-wrapper img:nth-child(5) { z-index: 1; }

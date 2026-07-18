@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: pages/board/pdf_export.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: pages/board/pdf_export.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * @file pdf_export.js
+ * @summary Task → PDF utilities for Debriefing boards.
+ * @description
+ * Provides functions to open a print-ready popup with task HTML (user chooses "Save as PDF"),
+ * plus an optional board‑wide export via html2pdf. Includes helpers to read CSS variables
+ * from the host app and generate a self-contained CSS block for the PDF document.
+ *
+ * Exports:
+ *  - {@link exportDebriefingTaskPdf}: open a new tab with app-like styling and trigger print
+ *  - {@link downloadDebriefingPdf}: download an aggregated PDF for the whole board (html2pdf)
+ */
+
+/* ---------- Task PDF in new tab / print ---------- */
+
+/**
+ * Options for {@link exportDebriefingTaskPdf}.
+ * @typedef {Object} ExportOptions
+ * @property {boolean} [logo=true] - Whether to render the BBM logo in the PDF view.
+ * @property {"top-left"|"top-right"|"bottom-left"|"bottom-right"} [logoPos="top-left"]
+ *   Position of the logo within the page.
+ */
+
+/**
+ * Opens a new tab containing the task HTML with app-like styling; the user can then
+ * choose "Save as PDF" in the browser print dialog.
+ *
+ * - Copies selected CSS variables from the host app (via {@link readCssVars})
+ * - Generates a self-contained CSS sheet (via {@link getPdfCss})
+ * - Injects task HTML and (optionally) a BBM logo, and triggers `window.print()`
+ *
+ * @param {string} taskHtml - The stored HTML of the task description to render.
+ * @param {string} [baseTitle='debriefing'] - Base filename / heading (no extension).
+ * @param {ExportOptions} [opts] - Additional rendering options.
+ * @returns {Promise&lt;void>} Resolves after the print tab is written and print is triggered.
+ */
+// --- REPLACE: exportDebriefingTaskPdf ---
+// --- REPLACE: exportDebriefingTaskPdf ---
+export async function exportDebriefingTaskPdf(taskHtml, baseTitle = 'debriefing', opts = {}) {
+    const options = { logo: true, logoPos: 'top-left', ...opts };
+
+    // Pull selected CSS variables from the app (fallbacks will be applied)
+    const vars = readCssVars([
+        '--bg-color','--bg-color-dark','--bg-color-light',
+        '--font_white_color','--font-prime-color',
+        '--btn-prime-color','--btn-prime-font-color',
+        '--card-bg-color','--card-border-color'
+    ]);
+
+    // Pass whether a logo is shown and where → padding will adapt accordingly
+    const css = getPdfCss(vars, { logoPos: options.logoPos, hasLogo: !!options.logo });
+
+    const titleText = baseTitle || 'debriefing';
+    const fileBase  = sanitizeFilename(titleText) + '_' + new Date().toISOString().slice(0,10);
+
+    const w = window.open('', '_blank');
+    if (!w) { alert('Popup blocked – please allow popups.'); return; }
+
+    w.document.open();
+    w.document.write(`&lt;!doctype html>
+&lt;html lang="de">
+&lt;head>
+  &lt;meta charset="utf-8">
+  &lt;title>${escapeHtml(fileBase)}&lt;/title>
+  &lt;base href="${location.href}">
+  &lt;meta name="viewport" content="width=device-width, initial-scale=1">
+  &lt;style>${css}&lt;/style>
+&lt;/head>
+&lt;body>
+  &lt;header class="pdf-header">
+    &lt;h1 class="pdf-title">${escapeHtml(titleText)}&lt;/h1>
+  &lt;/header>
+
+  &lt;main class="pdf-content">
+    ${taskHtml || ''}
+  &lt;/main>
+
+  ${options.logo ? `&lt;img class="pdf-logo ${options.logoPos}" src="../../assets/icons/bbm.png" alt="BBM Logo">` : ''}
+
+  &lt;script>
+    window.addEventListener('load', () => setTimeout(() => window.print(), 50));
+  &lt;/script>
+&lt;/body>
+&lt;/html>`);
+    w.document.close();
+}
+
+/* ---------- Optional: board-wide PDF export (existing) ---------- */
+
+/**
+ * Aggregates the current board into a single PDF using html2pdf (client-side).
+ * Requires `window.currentBoard` and loads `html2pdf` on demand if absent.
+ *
+ * @returns {Promise&lt;void>} Resolves after the PDF has been generated and downloaded.
+ */
+export async function downloadDebriefingPdf() {
+    if (!window.currentBoard) { alert('Board data missing'); return; }
+    if (!window.html2pdf)      await loadHtml2Pdf();
+
+    const pdfHtml = buildPdfTemplate(window.currentBoard);
+
+    const holder = document.createElement('div');
+    holder.style.cssText = `
+        position:fixed; top:0; left:0; width:210mm;
+        background:#fff; z-index:-1; pointer-events:none;
+    `;
+    holder.innerHTML = pdfHtml;
+    document.body.appendChild(holder);
+
+    await html2pdf().set({
+        margin:10,
+        filename:`debriefing_${new Date().toISOString().slice(0,10)}.pdf`,
+        html2canvas:{
+            scale:2,
+            useCORS:true,
+            imageTimeout:0,
+            ignoreElements:el =>
+                el.tagName==='IMG' &amp;&amp; el.src.includes('download.svg')
+        },
+        jsPDF:{ unit:'mm', format:'a4', orientation:'portrait' }
+    }).from(holder).save();
+
+    document.body.removeChild(holder);
+}
+
+/* ======================= Helpers ======================= */
+
+/**
+ * Reads the given CSS custom properties from `:root` and returns a name→value map.
+ * Missing variables are filled with sensible defaults for the PDF theme.
+ *
+ * @param {string[]} names - CSS variable names to read (e.g., ["--bg-color"]).
+ * @returns {Record&lt;string,string>} Map of variable names to computed values (trimmed).
+ */
+function readCssVars(names){
+    const cs = getComputedStyle(document.documentElement);
+    const out = {};
+    names.forEach(n => {
+        out[n] = (cs.getPropertyValue(n) || '').trim();
+    });
+    // Fallbacks
+    out['--bg-color']            ||= '#1C2739';
+    out['--bg-color-dark']       ||= '#18202E';
+    out['--bg-color-light']      ||= '#213049';
+    out['--font_white_color']    ||= '#EDEDED';
+    out['--font-prime-color']    ||= '#FFCC00';
+    out['--btn-prime-color']     ||= '#FFCC00';
+    out['--btn-prime-font-color']||= '#1C2739';
+    out['--card-bg-color']       ||= '#213049';
+    out['--card-border-color']   ||= '#2F4871';
+    return out;
+}
+
+/**
+ * Generates the CSS string used inside the print popup for styling.
+ * Adjusts top padding based on logo presence and position.
+ *
+ * @param {Record&lt;string,string>} vars - Name→value map of theme variables (from {@link readCssVars}).
+ * @param {{logoPos?: "top-left"|"top-right"|"bottom-left"|"bottom-right", hasLogo?: boolean}} [options]
+ *   Position of the logo and whether it should be rendered.
+ * @returns {string} A full CSS stylesheet to embed in the generated HTML.
+ */
+// --- REPLACE: getPdfCss ---
+// --- DROP‑IN REPLACEMENT ---
+// --- REPLACE THIS FUNCTION IN pdf_export.js ---
+// 1) CSS generator (logo small in a corner, print-safe)
+// --- REPLACE: getPdfCss ---
+function getPdfCss(vars, { logoPos = 'top-left', hasLogo = true } = {}) {
+    // Compute logo position
+    const isTop     = hasLogo &amp;&amp; /top/.test(logoPos);
+    const posTop    = isTop                                 ? '10mm' : 'auto';
+    const posBottom = hasLogo &amp;&amp; /bottom/.test(logoPos)     ? '10mm' : 'auto';
+    const posLeft   = hasLogo &amp;&amp; /left/.test(logoPos)       ? '12mm' : 'auto';
+    const posRight  = hasLogo &amp;&amp; /right/.test(logoPos)      ? '12mm' : 'auto';
+
+    // Spacing around the logo &amp; header
+    const logoSize      = '24mm';  // visible logo width
+    const extraGap      = '12mm';  // extra space below the logo
+    const defaultTopPad = '14mm';  // header padding without logo
+    const headerPadTop  = isTop ? `calc(${posTop} + ${logoSize} + ${extraGap})` : defaultTopPad;
+
+    return `
+:root{
+  --bg:${vars['--bg-color'] || '#1C2739'};
+  --bg-dark:${vars['--bg-color-dark'] || '#18202E'};
+  --bg-light:${vars['--bg-color-light'] || '#213049'};
+  --text:${vars['--font_white_color'] || '#EDEDED'};
+  --prime:${vars['--font-prime-color'] || '#FFCC00'};
+  --btn:${vars['--btn-prime-color'] || '#FFCC00'};
+  --btn-text:${vars['--btn-prime-font-color'] || '#1C2739'};
+  --card:${vars['--card-bg-color'] || '#213049'};
+  --border:${vars['--card-border-color'] || '#2F4871'};
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family: Mulish, Arial, Helvetica, sans-serif;line-height:1.35;font-size:12pt}
+
+/* Header padding adapts to logo height + gap */
+.pdf-header{display:flex;align-items:center;justify-content:space-between;padding:${headerPadTop} 14mm 0 14mm}
+.pdf-title{margin:0;color:var(--prime);font-size:18pt}
+.pdf-content{padding:8mm 14mm 14mm 14mm}
+
+/* Tables */
+table{width:100%;border-collapse:collapse;margin:6mm 0}
+thead th{background:var(--bg-dark);color:var(--text)}
+th,td{border:1px solid var(--border);padding:3mm;text-align:left;vertical-align:top}
+tr:nth-child(even) td{background:rgba(255,255,255,0.02)}
+
+/* Logo */
+.pdf-logo{
+  position:absolute;
+  top:${posTop}; bottom:${posBottom}; left:${posLeft}; right:${posRight};
+  width:${logoSize}; height:auto; opacity:.95;
+}
+
+@media print{ th,td{border-color:#666} }
+`;
+}
+
+/**
+ * Sanitizes a string for use as a file name: strips reserved characters,
+ * collapses whitespace to underscores, and limits length.
+ *
+ * @param {string} name - Raw file name without extension.
+ * @returns {string} A sanitized, filesystem-safe file name (no extension).
+ */
+function sanitizeFilename(name){
+    return (name || '')
+        .replace(/[\\/:*?"&lt;>|]+/g,'-')
+        .replace(/\s+/g,'_')
+        .slice(0,120);
+}
+
+/**
+ * Escapes HTML special characters in a string.
+ *
+ * @param {string} [s=''] - Raw string to escape.
+ * @returns {string} Escaped HTML-safe string.
+ */
+function escapeHtml(s=''){
+    return s.replace(/[&amp;&lt;>"']/g, m => ({'&amp;':'&amp;amp;','&lt;':'&amp;lt;','>':'&amp;gt;','"':'&amp;quot;',"'":'&amp;#39;'}[m]));
+}
+
+/* --- Existing board export (status-grouped tables) --- */
+
+/**
+ * Builds a full HTML document string for a print tab (logo in the corner, title under it)
+ * and injects the provided content HTML unchanged.
+ *
+ * @param {string} contentHtml - Raw HTML for the task/body content.
+ * @param {string} titleText - Title to display at the top and in `&lt;title>`.
+ * @returns {string} Complete HTML document as a string.
+ */
+function buildTaskPdfHtml(contentHtml, titleText) {
+  // Absolute logo URL so it loads reliably in about:blank
+  const logoUrl = new URL('../../assets/icons/bbm.png', window.location.href).href;
+
+  return `
+&lt;!doctype html>
+&lt;html lang="de">
+&lt;head>
+&lt;meta charset="utf-8">
+&lt;title>${titleText ? String(titleText).replace(/&lt;/g,'&amp;lt;') : 'PDF'}&lt;/title>
+&lt;meta name="viewport" content="width=device-width, initial-scale=1">
+
+&lt;style>
+  /* Base */
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+    color: #1C2739; /* matches --bg-color (dark blue) */
+    font-family: Arial, Helvetica, sans-serif;
+    line-height: 1.4;
+  }
+
+  /* Fixed BBM logo (top-left) */
+  #bbm-logo {
+    position: fixed;
+    top: 12mm;
+    left: 12mm;
+    height: 14mm;      /* ~ 50px on A4 */
+    width: auto;
+    z-index: 9999;
+    pointer-events: none;
+  }
+
+  /* Page / container */
+  .page {
+    /* A4 width with inner margin; centered in the browser tab */
+    width: 210mm;
+    margin: 0 auto;
+    padding: 30mm 15mm 20mm 15mm; /* enough top space: 30mm due to logo */
+    box-sizing: border-box;
+  }
+
+  /* Title (spacing below logo) */
+  .doc-title {
+    margin: 0 0 10mm 0;     /* extra space below the title */
+    padding-top: 8mm;        /* more room below the fixed logo */
+    font-size: 18pt;
+    font-weight: 700;
+    text-align: center;
+    color: #1C2739;
+  }
+
+  /* Optional: mild table/content defaults, in case contentHtml includes tables */
+  .page table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .page th, .page td {
+    border: 0.2mm solid #2F4871;  /* akin to --card-border-color */
+    padding: 2mm;
+    vertical-align: top;
+  }
+
+  /* Print: keep the same rules */
+  @media print {
+    #bbm-logo {
+      position: fixed;
+      top: 12mm;
+      left: 12mm;
+      height: 14mm;
+    }
+    .page {
+      width: auto;           /* printing engine uses page format */
+      margin: 0;
+      padding: 30mm 15mm 20mm 15mm;
+    }
+  }
+&lt;/style>
+&lt;/head>
+&lt;body>
+  &lt;!-- Fixed logo (top-left) -->
+  &lt;img id="bbm-logo" src="${logoUrl}" alt="BBM Logo">
+
+  &lt;!-- Page container -->
+  &lt;main class="page">
+    &lt;h1 class="doc-title">${titleText ? String(titleText).replace(/&lt;/g,'&amp;lt;') : ''}&lt;/h1>
+
+    &lt;!-- Your task HTML, unchanged -->
+    &lt;div class="content">
+      ${contentHtml || ''}
+    &lt;/div>
+  &lt;/main>
+&lt;/body>
+&lt;/html>`;
+}
+
+/**
+ * Minimal task shape for board tabular export.
+ * @typedef {Object} ExportTask
+ * @property {string} [title]
+ * @property {{ fullname?: string }} [assignee]
+ * @property {{ fullname?: string }} [reviewer]
+ * @property {string} [priority]
+ * @property {string} [due_date]
+ */
+
+/**
+ * Renders a status section (heading + table) for a list of tasks.
+ *
+ * @param {string} status - Status name (e.g., "to-do", "in-progress").
+ * @param {ExportTask[]} tasks - Tasks belonging to the given status.
+ * @returns {string} HTML string for the status block (empty string if no tasks).
+ */
+function renderStatusTable(status, tasks) {
+    if (!tasks.length) return '';
+    const rows = tasks.map(t => `
+        &lt;tr>
+            &lt;td>${escapeHtml(t.title || '')}&lt;/td>
+            &lt;td>${escapeHtml(t.assignee?.fullname ?? '—')}&lt;/td>
+            &lt;td>${escapeHtml(t.reviewer?.fullname ?? '—')}&lt;/td>
+            &lt;td>${escapeHtml(t.priority || '')}&lt;/td>
+            &lt;td>${escapeHtml(t.due_date ?? '—')}&lt;/td>
+        &lt;/tr>`).join('');
+    return `
+      &lt;h2>${escapeHtml(status.replace('-', ' ').toUpperCase())}&lt;/h2>
+      &lt;table>
+        &lt;thead>
+          &lt;tr>&lt;th>Task&lt;/th>&lt;th>Assignee&lt;/th>&lt;th>Reviewer&lt;/th>&lt;th>Prio&lt;/th>&lt;th>Due&lt;/th>&lt;/tr>
+        &lt;/thead>
+        &lt;tbody>${rows}&lt;/tbody>
+      &lt;/table>`;
+}
+
+/**
+ * Dynamically loads the html2pdf bundle (via CDN) if not already available.
+ * Exposes `window.html2pdf`.
+ *
+ * @returns {Promise&lt;void>} Resolves once the script has been loaded.
+ */
+async function loadHtml2Pdf() {
+    return new Promise(res => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+        s.onload = res;
+        document.head.appendChild(s);
+    });
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#API_BASE_URL">API_BASE_URL</a></li><li><a href="global.html#BOARDS_URL">BOARDS_URL</a></li><li><a href="global.html#DEFAULT_END">DEFAULT_END</a></li><li><a href="global.html#DEFAULT_LOCATION">DEFAULT_LOCATION</a></li><li><a href="global.html#DEFAULT_START">DEFAULT_START</a></li><li><a href="global.html#GFX_MANUAL_URL">GFX_MANUAL_URL</a></li><li><a href="global.html#GUEST_LOGIN">GUEST_LOGIN</a></li><li><a href="global.html#IMG_PATH">IMG_PATH</a></li><li><a href="global.html#LOGIN_URL">LOGIN_URL</a></li><li><a href="global.html#MAIL_CHECK_URL">MAIL_CHECK_URL</a></li><li><a href="global.html#REGISTER_URL">REGISTER_URL</a></li><li><a href="global.html#STORE_KEY">STORE_KEY</a></li><li><a href="global.html#TASKS_ASSIGNED_URL">TASKS_ASSIGNED_URL</a></li><li><a href="global.html#TASKS_REVIEWER_URL">TASKS_REVIEWER_URL</a></li><li><a href="global.html#TASKS_URL">TASKS_URL</a></li><li><a href="global.html#THRESHOLD">THRESHOLD</a></li><li><a href="global.html#boardCreateCheckMailAddress">boardCreateCheckMailAddress</a></li><li><a href="global.html#boardCreateInviteMember">boardCreateInviteMember</a></li><li><a href="global.html#boardCreateSubmit">boardCreateSubmit</a></li><li><a href="global.html#boardList">boardList</a></li><li><a href="global.html#boardSettingsCheckMailAddress">boardSettingsCheckMailAddress</a></li><li><a href="global.html#boardSettingsInviteMember">boardSettingsInviteMember</a></li><li><a href="global.html#buildTaskPdfHtml">buildTaskPdfHtml</a></li><li><a href="global.html#cancelCreateBoard">cancelCreateBoard</a></li><li><a href="global.html#checkMailAddress">checkMailAddress</a></li><li><a href="global.html#closeAllDropdowns">closeAllDropdowns</a></li><li><a href="global.html#closeDialog">closeDialog</a></li><li><a href="global.html#closeOpenId">closeOpenId</a></li><li><a href="global.html#closeOtherMenuBtns">closeOtherMenuBtns</a></li><li><a href="global.html#createBoard">createBoard</a></li><li><a href="global.html#createHeaders">createHeaders</a></li><li><a href="global.html#currenTaskFilter">currenTaskFilter</a></li><li><a href="global.html#currentAssignedTickets">currentAssignedTickets</a></li><li><a href="global.html#currentBoards">currentBoards</a></li><li><a href="global.html#currentCreateBoard">currentCreateBoard</a></li><li><a href="global.html#currentReviewerTickets">currentReviewerTickets</a></li><li><a href="global.html#currentSettingsBoard">currentSettingsBoard</a></li><li><a href="global.html#deleteBoard">deleteBoard</a></li><li><a href="global.html#deleteData">deleteData</a></li><li><a href="global.html#deleteLastingToast">deleteLastingToast</a></li><li><a href="global.html#downloadDebriefingPdf">downloadDebriefingPdf</a></li><li><a href="global.html#drawPieChart">drawPieChart</a></li><li><a href="global.html#drawWaveChart">drawWaveChart</a></li><li><a href="global.html#escapeHtml">escapeHtml</a></li><li><a href="global.html#exportTaskPdfFromCard">exportTaskPdfFromCard</a></li><li><a href="global.html#extractErrorMessages">extractErrorMessages</a></li><li><a href="global.html#formatDate">formatDate</a></li><li><a href="global.html#formatDateNice">formatDateNice</a></li><li><a href="global.html#getAndRenderBoardList">getAndRenderBoardList</a></li><li><a href="global.html#getAndRenderRequestList">getAndRenderRequestList</a></li><li><a href="global.html#getAssignedTasks">getAssignedTasks</a></li><li><a href="global.html#getAuthEmail">getAuthEmail</a></li><li><a href="global.html#getAuthFullname">getAuthFullname</a></li><li><a href="global.html#getAuthToken">getAuthToken</a></li><li><a href="global.html#getAuthUser">getAuthUser</a></li><li><a href="global.html#getAuthUserId">getAuthUserId</a></li><li><a href="global.html#getBoardById">getBoardById</a></li><li><a href="global.html#getBoardCardMoveBtnTemplate">getBoardCardMoveBtnTemplate</a></li><li><a href="global.html#getBoardCardTemplate">getBoardCardTemplate</a></li><li><a href="global.html#getBoardlistEntrieTemplate">getBoardlistEntrieTemplate</a></li><li><a href="global.html#getBoards">getBoards</a></li><li><a href="global.html#getData">getData</a></li><li><a href="global.html#getDetailTaskPersonTemplate">getDetailTaskPersonTemplate</a></li><li><a href="global.html#getErrorMessage">getErrorMessage</a></li><li><a href="global.html#getFormData">getFormData</a></li><li><a href="global.html#getHeaderTemplate">getHeaderTemplate</a></li><li><a href="global.html#getInitials">getInitials</a></li><li><a href="global.html#getLogedInHeaderTemplate">getLogedInHeaderTemplate</a></li><li><a href="global.html#getMemberListTemplate">getMemberListTemplate</a></li><li><a href="global.html#getNearestDueDateTask">getNearestDueDateTask</a></li><li><a href="global.html#getParamFromUrl">getParamFromUrl</a></li><li><a href="global.html#getPdfCss">getPdfCss</a></li><li><a href="global.html#getPieChartData">getPieChartData</a></li><li><a href="global.html#getRequestListEntryTemplate">getRequestListEntryTemplate</a></li><li><a href="global.html#getReviewerTasks">getReviewerTasks</a></li><li><a href="global.html#getSingleCommmentTemplate">getSingleCommmentTemplate</a></li><li><a href="global.html#getSingleTaskTemplate">getSingleTaskTemplate</a></li><li><a href="global.html#getTaskCreateMemberListEntrieTemplate">getTaskCreateMemberListEntrieTemplate</a></li><li><a href="global.html#getTaskListTemplate">getTaskListTemplate</a></li><li><a href="global.html#getToastHTML">getToastHTML</a></li><li><a href="global.html#globalToast">globalToast</a></li><li><a href="global.html#guestLogin">guestLogin</a></li><li><a href="global.html#hydrateFromStorage">hydrateFromStorage</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initPortfolioMarquee">initPortfolioMarquee</a></li><li><a href="global.html#isLoadingTasks">isLoadingTasks</a></li><li><a href="global.html#isSflDebriefBoard">isSflDebriefBoard</a></li><li><a href="global.html#loadHtml2Pdf">loadHtml2Pdf</a></li><li><a href="global.html#logIn">logIn</a></li><li><a href="global.html#logInSubmit">logInSubmit</a></li><li><a href="global.html#logOut">logOut</a></li><li><a href="global.html#openBoardCreateDialog">openBoardCreateDialog</a></li><li><a href="global.html#openBoardDeleteToast">openBoardDeleteToast</a></li><li><a href="global.html#openBoardSettingsDialog">openBoardSettingsDialog</a></li><li><a href="global.html#patchBoardSettingsMembers">patchBoardSettingsMembers</a></li><li><a href="global.html#patchData">patchData</a></li><li><a href="global.html#persistStatus">persistStatus</a></li><li><a href="global.html#postData">postData</a></li><li><a href="global.html#prevDef">prevDef</a></li><li><a href="global.html#readCssVars">readCssVars</a></li><li><a href="global.html#redirectToBoard">redirectToBoard</a></li><li><a href="global.html#redirectToBoardWTask">redirectToBoardWTask</a></li><li><a href="global.html#redirectToBoards">redirectToBoards</a></li><li><a href="global.html#redirectToDashboard">redirectToDashboard</a></li><li><a href="global.html#registration">registration</a></li><li><a href="global.html#removeAuthCredentials">removeAuthCredentials</a></li><li><a href="global.html#removeBoardSettingsMember">removeBoardSettingsMember</a></li><li><a href="global.html#removeCurrentMember">removeCurrentMember</a></li><li><a href="global.html#renderBoardList">renderBoardList</a></li><li><a href="global.html#renderBoardSettingsDialog">renderBoardSettingsDialog</a></li><li><a href="global.html#renderBoardSettingsMemberList">renderBoardSettingsMemberList</a></li><li><a href="global.html#renderCreateDialogMemberList">renderCreateDialogMemberList</a></li><li><a href="global.html#renderDashboard">renderDashboard</a></li><li><a href="global.html#renderMemberAndTaskCount">renderMemberAndTaskCount</a></li><li><a href="global.html#renderRequestList">renderRequestList</a></li><li><a href="global.html#renderStatusBtn">renderStatusBtn</a></li><li><a href="global.html#renderStatusTable">renderStatusTable</a></li><li><a href="global.html#renderTaskList">renderTaskList</a></li><li><a href="global.html#renderUrgentTask">renderUrgentTask</a></li><li><a href="global.html#renderWelcomeMessage">renderWelcomeMessage</a></li><li><a href="global.html#requestList">requestList</a></li><li><a href="global.html#resetCurrentDialogs">resetCurrentDialogs</a></li><li><a href="global.html#resetMailError">resetMailError</a></li><li><a href="global.html#safePreview">safePreview</a></li><li><a href="global.html#sampleRequests">sampleRequests</a></li><li><a href="global.html#sanitizeFilename">sanitizeFilename</a></li><li><a href="global.html#setAuthCredentials">setAuthCredentials</a></li><li><a href="global.html#setDashboardData">setDashboardData</a></li><li><a href="global.html#setError">setError</a></li><li><a href="global.html#setHeader">setHeader</a></li><li><a href="global.html#setHeaderTemplate">setHeaderTemplate</a></li><li><a href="global.html#setNewBoardTitle">setNewBoardTitle</a></li><li><a href="global.html#setStatus">setStatus</a></li><li><a href="global.html#showToastMessage">showToastMessage</a></li><li><a href="global.html#signUpSubmit">signUpSubmit</a></li><li><a href="global.html#signUpValues">signUpValues</a></li><li><a href="global.html#stopProp">stopProp</a></li><li><a href="global.html#timeDifference">timeDifference</a></li><li><a href="global.html#toggleBoardTitleEdit">toggleBoardTitleEdit</a></li><li><a href="global.html#toggleDropdown">toggleDropdown</a></li><li><a href="global.html#toggleOpen">toggleOpen</a></li><li><a href="global.html#toggleOpenId">toggleOpenId</a></li><li><a href="global.html#togglePassword">togglePassword</a></li><li><a href="global.html#toggleSwitch">toggleSwitch</a></li><li><a href="global.html#toggleTicketsTypeSwitch">toggleTicketsTypeSwitch</a></li><li><a href="global.html#updateBoard">updateBoard</a></li><li><a href="global.html#validateBoardTitle">validateBoardTitle</a></li><li><a href="global.html#validateConfirmPW">validateConfirmPW</a></li><li><a href="global.html#validateEmail">validateEmail</a></li><li><a href="global.html#validateFullname">validateFullname</a></li><li><a href="global.html#validateLoginPW">validateLoginPW</a></li><li><a href="global.html#validateMemberEmail">validateMemberEmail</a></li><li><a href="global.html#validatePW">validatePW</a></li><li><a href="global.html#validatePrivacyCheckbox">validatePrivacyCheckbox</a></li><li><a href="global.html#validateRegistrationEmail">validateRegistrationEmail</a></li><li><a href="global.html#validateSignUp">validateSignUp</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Fri Aug 15 2025 17:41:07 GMT+0200 (Mitteleuropäische Sommerzeit)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

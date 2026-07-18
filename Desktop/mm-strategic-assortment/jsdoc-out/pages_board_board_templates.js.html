@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: pages/board/board_templates.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: pages/board/board_templates.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * @file board_templates.js
+ * @summary HTML template helpers for board members, task cards, and comments.
+ * @description
+ * Provides small, framework-agnostic string template builders for:
+ *  - Member profile circles (limited to 4 with "+X" overflow indicator)
+ *  - Task detail person blocks (assignee/reviewer)
+ *  - Single comment entries with optional delete button
+ *  - Kanban task cards, including optional SFL Debriefing PDF export button
+ *  - Move button group for changing task status
+ * Includes a few helpers for SFL board detection, safe HTML preview extraction, and PDF export.
+ *
+ * @author
+ *   Leugzim Rullani
+ * @version 1.0.0
+ */
+
+/**
+ * A board member.
+ * @typedef {Object} Member
+ * @property {string} id - Unique identifier for the member.
+ * @property {string} fullname - Full name of the member.
+ */
+
+/**
+ * A single task on the board.
+ * @typedef {Object} Task
+ * @property {number} id - Unique identifier of the task.
+ * @property {string} title - Task title.
+ * @property {string} description - Task description (may contain HTML).
+ * @property {('high'|'medium'|'low')} priority - Priority indicator.
+ * @property {'to-do'|'in-progress'|'review'|'done'} status - Current status.
+ * @property {Member|null} [assignee] - Assigned member, if any.
+ */
+
+/**
+ * A comment on a task.
+ * @typedef {Object} Comment
+ * @property {number} id - Unique identifier of the comment.
+ * @property {string} author - Full name of the author.
+ * @property {string} created_at - ISO date string of creation time.
+ * @property {string} content - The comment body text.
+ */
+
+/**
+ * A board (lightweight view).
+ * @typedef {Object} Board
+ * @property {string} [title] - Optional board title.
+ * @property {Member[]} [members] - Optional list of board members.
+ * @property {Task[]} [tasks] - Optional list of tasks.
+ */
+
+/**
+ * Generates the HTML for the board member profile circles list.
+ *
+ * Shows up to 4 member initials. If there are more than 4 members,
+ * displays a "+X" indicator for the remaining members.
+ *
+ * @param {Board} currentBoard - The board object containing members.
+ * @returns {string} HTML string for rendering the member profile circles.
+ *
+ * @example
+ * const html = getMemberListTemplate({ members: [{ fullname: 'Jane Doe' }] });
+ * // -> "&lt;li>&lt;div class=\"profile_circle color_J\">JD&lt;/div>&lt;/li>"
+ */
+function getMemberListTemplate(currentBoard) {
+    let listHTML = "";
+    if (!currentBoard?.members) return listHTML;
+
+    for (let i = 0; i &lt; currentBoard.members.length; i++) {
+        if (i >= 4) {
+            listHTML += `&lt;li>&lt;div class="profile_circle color_A">+${currentBoard.members.length - 4}&lt;/div>&lt;/li>`;
+            break;
+        }
+        const initials = getInitials(currentBoard.members[i].fullname);
+        listHTML += `&lt;li>&lt;div class="profile_circle color_${initials[0]}">${initials}&lt;/div>&lt;/li>`;
+    }
+    return listHTML;
+}
+
+/**
+ * Returns the HTML template for displaying a task member (assignee or reviewer).
+ *
+ * If a member is provided, shows their initials in a profile circle and their full name.
+ * If no member is provided, shows a default user icon and the label "unassigned".
+ *
+ * @param {Member|null} member - The member object (or `null` if unassigned).
+ * @returns {string} HTML string representing the member or an "unassigned" placeholder.
+ *
+ * @example
+ * getDetailTaskPersonTemplate({ fullname: 'Jane Doe' });
+ * // -> "&lt;div class=\"profile_circle ...\">JD&lt;/div>&lt;p>Jane Doe&lt;/p>"
+ */
+function getDetailTaskPersonTemplate(member) {
+    if (member) {
+        const initials = getInitials(member.fullname);
+        return `&lt;div class="profile_circle color_${initials[0]}">${initials}&lt;/div>
+                &lt;p>${member.fullname}&lt;/p>`;
+    } else {
+        return `&lt;img src="../../assets/icons/face_icon.svg" alt="">
+                &lt;p>unassigned&lt;/p>`;
+    }
+}
+
+/**
+ * Generates the HTML template for a single comment in the comment list.
+ *
+ * Displays the author's initials, name, time since creation, and comment content.
+ * If the comment was authored by the current user, includes a delete button.
+ *
+ * @param {Comment} comment - The comment object.
+ * @returns {string} HTML string representing a single comment entry.
+ *
+ * @example
+ * getSingleCommmentTemplate({ id: 1, author: 'Jane Doe', created_at: new Date().toISOString(), content: 'Great!' });
+ */
+function getSingleCommmentTemplate(comment) {
+    let delete_btn = comment.author == getAuthFullname()
+        ? `&lt;img src="../../assets/icons/delete.svg" class="delete_btn" alt="" onclick="deleteComment(${comment.id})">`
+        : "";
+    let userInitials = getInitials(comment.author);
+
+    return `
+        &lt;article class="comment_wrapper d_flex_ss_gm w_full">
+            &lt;div class="profile_circle color_${userInitials[0]}">${userInitials}&lt;/div>
+            &lt;div class="d_flex_sc_gs f_d_c w_full">
+                &lt;header class="d_flex_sc_gm w_full d_sb">
+                    &lt;div class="d_flex_sc_gm">
+                        &lt;h4>${comment.author}&lt;/h4>
+                        &lt;p>${timeDifference(comment.created_at)}&lt;/p>
+                    &lt;/div>
+                    ${delete_btn}
+                &lt;/header>
+                &lt;p class="w_full">${comment.content}&lt;/p>
+            &lt;/div>
+        &lt;/article>`;
+}
+
+/**
+ * Generates the HTML for the dropdown list of potential assignees or reviewers
+ * when creating or editing a task.
+ *
+ * The first entry allows the user to unset the member ("unassigned"), followed by all board members.
+ * Clicking an entry will set (or unset) the corresponding member and close the dropdown.
+ *
+ * @param {'assignee'|'reviewer'} type - Which role the member is being assigned to.
+ * @param {Board} currentBoard - The current board containing a members array.
+ * @returns {string} HTML string for the member dropdown entries.
+ *
+ * @example
+ * getTaskCreateMemberListEntrieTemplate('assignee', { members: [{ id: 'u1', fullname: 'Jane Doe' }] });
+ */
+function getTaskCreateMemberListEntrieTemplate(type, currentBoard) {
+    let listHtml = `&lt;li onclick="unsetMemberAs('${type}'); toggleDropdown(this, event)">
+                        &lt;img src="../../assets/icons/face_icon.svg" alt="">
+                        &lt;p>unassigned&lt;/p>
+                    &lt;/li>`;
+    if (!currentBoard?.members) return listHtml;
+
+    currentBoard.members.forEach(member => {
+        const initials = getInitials(member.fullname);
+        listHtml += `&lt;li onclick="setMemberAs('${member.id}', '${type}'); toggleDropdown(this, event)">
+                        &lt;div class="profile_circle color_${initials[0]}">${initials}&lt;/div>
+                        &lt;p>${member.fullname}&lt;/p>
+                    &lt;/li>`;
+    });
+
+    return listHtml;
+}
+
+/**
+ * Generates the HTML template for a task card on the Kanban board column.
+ *
+ * Shows the task's title, priority icon, assignee (profile circle or default icon),
+ * a short preview of the description (HTML stripped), an optional PDF button
+ * (only for SFL Debriefing boards), and the move button group.
+ * Clicking the card opens the task detail dialog.
+ *
+ * @param {Task} task - The task to render.
+ * @returns {string} HTML string representing the task card in the board column.
+ *
+ * @example
+ * getBoardCardTemplate({ id: 1, title: 'Task', description: '&lt;p>Text&lt;/p>', status: 'to-do', priority: 'high', assignee: null });
+ */
+function getBoardCardTemplate(task) {
+    let assignee_html = task.assignee
+        ? `&lt;div class="profile_circle color_${getInitials(task.assignee.fullname)[0]}">${getInitials(task.assignee.fullname)}&lt;/div>`
+        : `&lt;img src="../../assets/icons/face_icon.svg" alt="">`;
+
+    const pdfBtnHtml = isSflDebriefBoard()
+        ? `&lt;button type="button"
+                   class="std_btn btn_prime d_flex_sc_gs"
+                   onclick="exportTaskPdfFromCard(event, ${task.id})">
+                &lt;span>PDF&lt;/span>
+           &lt;/button>`
+        : '';
+
+    return `
+        &lt;li class="column_card" onclick="openTaskDetailDialog(${task.id})">
+            &lt;header class="column_card_header">
+                &lt;h4 class="font_white_color">${task.title}&lt;/h4>
+                &lt;div class="d_flex_sc_gm">
+                    ${pdfBtnHtml}
+                    &lt;img src="../../assets/icons/${task.priority}_prio_colored.svg" alt="">
+                    ${assignee_html}
+                &lt;/div>
+            &lt;/header>
+            &lt;p class="column_card_content font_white_color">${safePreview(task.description, 160)}&lt;/p>
+            ${getBoardCardMoveBtnTemplate(task)}
+        &lt;/li>`;
+}
+
+/**
+ * Generates the HTML template for the move button group of a board task card.
+ *
+ * Provides buttons to move a task to the previous or next status
+ * (e.g., "to-do", "in-progress", "review", "done").
+ * Only valid moves are rendered based on the current status.
+ *
+ * @param {Task} task - The task to move.
+ * @returns {string} HTML string representing the move button dropdown for the task card.
+ *
+ * @example
+ * getBoardCardMoveBtnTemplate({ id: 1, status: 'review', title: '', description: '', priority: 'low', assignee: null });
+ */
+function getBoardCardMoveBtnTemplate(task) {
+    let statii = ['to-do', 'in-progress', 'review', 'done'];
+    let currentStatusIndex = statii.indexOf(task.status);
+    let moveBtns = "";
+    if (currentStatusIndex > 0) {
+        moveBtns += `&lt;button onclick="modifyTaskStatus(${task.id}, '${statii[currentStatusIndex-1]}')">
+                        ${statii[currentStatusIndex-1]}
+                        &lt;img class="rotate_half" src="../../assets/icons/arrow_forward.svg" alt="">
+                     &lt;/button>`;
+    }
+    if (currentStatusIndex &lt; statii.length - 1) {
+        moveBtns += `&lt;button onclick="modifyTaskStatus(${task.id}, '${statii[currentStatusIndex+1]}')">
+                        ${statii[currentStatusIndex+1]}
+                        &lt;img src="../../assets/icons/arrow_forward.svg" alt="">
+                     &lt;/button>`;
+    }
+
+    return `
+        &lt;div move-open="false" class="move_btn" onclick="toggleMoveOpen(this); stopProp(event)">
+            &lt;img src="../../assets/icons/swap_horiz.svg" alt="">
+            &lt;div class=" d_flex_sc_gs f_d_c pad_s">
+                &lt;p class="font_prime_color ">Move to&lt;/p>
+                ${moveBtns}
+            &lt;/div>
+        &lt;/div>`;
+}
+
+/* ====================== Helpers ====================== */
+
+/**
+ * Returns `true` if the current board is an SFL Debriefing board.
+ * Checks title for "debriefing" and either "Swiss Football League" or "SFL".
+ *
+ * @returns {boolean} Whether the current board matches the SFL Debriefing pattern.
+ */
+function isSflDebriefBoard() {
+    const t = (window.currentBoard?.title || '').toLowerCase();
+    return t.includes('debriefing') &amp;&amp; (t.includes('swiss football league') || t.includes('sfl'));
+}
+
+/**
+ * Extracts a short, clean text preview from HTML (removes &lt;style>/&lt;script> content).
+ *
+ * @param {string} html - Source HTML string.
+ * @param {number} [maxLen=180] - Maximum preview length in characters.
+ * @returns {string} A trimmed preview string with ellipsis if truncated.
+ *
+ * @example
+ * safePreview('&lt;p>Hello &lt;b>World&lt;/b>&lt;/p>', 10); // "Hello W…"
+ */
+function safePreview(html, maxLen) {
+    if (!html) return '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+
+    // Remove style/script nodes to avoid leaking CSS/JS into preview
+    tmp.querySelectorAll('style,script').forEach(n => n.remove());
+
+    let text = (tmp.textContent || tmp.innerText || '').replace(/\s+/g, ' ').trim();
+    if (!text) return '';
+    const limit = Math.max(0, maxLen || 180);
+    return text.length &lt;= limit ? text : text.slice(0, limit - 1) + '…';
+}
+
+/**
+ * Exports a task as PDF directly from the card (SFL Debriefing boards only).
+ * Opens a new tab with the browser print dialog; the user can "Save as PDF".
+ *
+ * @param {MouseEvent} ev - The click event from the PDF button.
+ * @param {number} taskId - The identifier of the task to export.
+ * @returns {Promise&lt;void>} Resolves when the export flow has been triggered.
+ */
+async function exportTaskPdfFromCard(ev, taskId) {
+    ev.stopPropagation();
+    ev.preventDefault();
+
+    try {
+        const task = (typeof getTaskById === 'function')
+            ? getTaskById(taskId)
+            : (window.currentBoard?.tasks || []).find(t => t.id == taskId);
+        if (!task) return;
+
+        const html = task.description || '';
+        const baseTitle = task.title || 'debriefing';
+
+        const mod = await import('./pdf_export.js'); // same directory as board_templates.js
+        if (typeof mod.exportDebriefingTaskPdf === 'function') {
+            // You can pass options as a third argument if your exporter supports it (e.g. { logoPos: 'bottom-right' })
+            mod.exportDebriefingTaskPdf(html, baseTitle);
+        } else if (typeof mod.downloadDebriefingPdf === 'function') {
+            // Fallback: board-wide export (all tasks)
+            mod.downloadDebriefingPdf();
+        }
+    } catch (e) {
+        console.error('PDF export failed:', e);
+    }
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#API_BASE_URL">API_BASE_URL</a></li><li><a href="global.html#BOARDS_URL">BOARDS_URL</a></li><li><a href="global.html#DEFAULT_END">DEFAULT_END</a></li><li><a href="global.html#DEFAULT_LOCATION">DEFAULT_LOCATION</a></li><li><a href="global.html#DEFAULT_START">DEFAULT_START</a></li><li><a href="global.html#GFX_MANUAL_URL">GFX_MANUAL_URL</a></li><li><a href="global.html#GUEST_LOGIN">GUEST_LOGIN</a></li><li><a href="global.html#IMG_PATH">IMG_PATH</a></li><li><a href="global.html#LOGIN_URL">LOGIN_URL</a></li><li><a href="global.html#MAIL_CHECK_URL">MAIL_CHECK_URL</a></li><li><a href="global.html#REGISTER_URL">REGISTER_URL</a></li><li><a href="global.html#STORE_KEY">STORE_KEY</a></li><li><a href="global.html#TASKS_ASSIGNED_URL">TASKS_ASSIGNED_URL</a></li><li><a href="global.html#TASKS_REVIEWER_URL">TASKS_REVIEWER_URL</a></li><li><a href="global.html#TASKS_URL">TASKS_URL</a></li><li><a href="global.html#THRESHOLD">THRESHOLD</a></li><li><a href="global.html#boardCreateCheckMailAddress">boardCreateCheckMailAddress</a></li><li><a href="global.html#boardCreateInviteMember">boardCreateInviteMember</a></li><li><a href="global.html#boardCreateSubmit">boardCreateSubmit</a></li><li><a href="global.html#boardList">boardList</a></li><li><a href="global.html#boardSettingsCheckMailAddress">boardSettingsCheckMailAddress</a></li><li><a href="global.html#boardSettingsInviteMember">boardSettingsInviteMember</a></li><li><a href="global.html#buildTaskPdfHtml">buildTaskPdfHtml</a></li><li><a href="global.html#cancelCreateBoard">cancelCreateBoard</a></li><li><a href="global.html#checkMailAddress">checkMailAddress</a></li><li><a href="global.html#closeAllDropdowns">closeAllDropdowns</a></li><li><a href="global.html#closeDialog">closeDialog</a></li><li><a href="global.html#closeOpenId">closeOpenId</a></li><li><a href="global.html#closeOtherMenuBtns">closeOtherMenuBtns</a></li><li><a href="global.html#createBoard">createBoard</a></li><li><a href="global.html#createHeaders">createHeaders</a></li><li><a href="global.html#currenTaskFilter">currenTaskFilter</a></li><li><a href="global.html#currentAssignedTickets">currentAssignedTickets</a></li><li><a href="global.html#currentBoards">currentBoards</a></li><li><a href="global.html#currentCreateBoard">currentCreateBoard</a></li><li><a href="global.html#currentReviewerTickets">currentReviewerTickets</a></li><li><a href="global.html#currentSettingsBoard">currentSettingsBoard</a></li><li><a href="global.html#deleteBoard">deleteBoard</a></li><li><a href="global.html#deleteData">deleteData</a></li><li><a href="global.html#deleteLastingToast">deleteLastingToast</a></li><li><a href="global.html#downloadDebriefingPdf">downloadDebriefingPdf</a></li><li><a href="global.html#drawPieChart">drawPieChart</a></li><li><a href="global.html#drawWaveChart">drawWaveChart</a></li><li><a href="global.html#escapeHtml">escapeHtml</a></li><li><a href="global.html#exportTaskPdfFromCard">exportTaskPdfFromCard</a></li><li><a href="global.html#extractErrorMessages">extractErrorMessages</a></li><li><a href="global.html#formatDate">formatDate</a></li><li><a href="global.html#formatDateNice">formatDateNice</a></li><li><a href="global.html#getAndRenderBoardList">getAndRenderBoardList</a></li><li><a href="global.html#getAndRenderRequestList">getAndRenderRequestList</a></li><li><a href="global.html#getAssignedTasks">getAssignedTasks</a></li><li><a href="global.html#getAuthEmail">getAuthEmail</a></li><li><a href="global.html#getAuthFullname">getAuthFullname</a></li><li><a href="global.html#getAuthToken">getAuthToken</a></li><li><a href="global.html#getAuthUser">getAuthUser</a></li><li><a href="global.html#getAuthUserId">getAuthUserId</a></li><li><a href="global.html#getBoardById">getBoardById</a></li><li><a href="global.html#getBoardCardMoveBtnTemplate">getBoardCardMoveBtnTemplate</a></li><li><a href="global.html#getBoardCardTemplate">getBoardCardTemplate</a></li><li><a href="global.html#getBoardlistEntrieTemplate">getBoardlistEntrieTemplate</a></li><li><a href="global.html#getBoards">getBoards</a></li><li><a href="global.html#getData">getData</a></li><li><a href="global.html#getDetailTaskPersonTemplate">getDetailTaskPersonTemplate</a></li><li><a href="global.html#getErrorMessage">getErrorMessage</a></li><li><a href="global.html#getFormData">getFormData</a></li><li><a href="global.html#getHeaderTemplate">getHeaderTemplate</a></li><li><a href="global.html#getInitials">getInitials</a></li><li><a href="global.html#getLogedInHeaderTemplate">getLogedInHeaderTemplate</a></li><li><a href="global.html#getMemberListTemplate">getMemberListTemplate</a></li><li><a href="global.html#getNearestDueDateTask">getNearestDueDateTask</a></li><li><a href="global.html#getParamFromUrl">getParamFromUrl</a></li><li><a href="global.html#getPdfCss">getPdfCss</a></li><li><a href="global.html#getPieChartData">getPieChartData</a></li><li><a href="global.html#getRequestListEntryTemplate">getRequestListEntryTemplate</a></li><li><a href="global.html#getReviewerTasks">getReviewerTasks</a></li><li><a href="global.html#getSingleCommmentTemplate">getSingleCommmentTemplate</a></li><li><a href="global.html#getSingleTaskTemplate">getSingleTaskTemplate</a></li><li><a href="global.html#getTaskCreateMemberListEntrieTemplate">getTaskCreateMemberListEntrieTemplate</a></li><li><a href="global.html#getTaskListTemplate">getTaskListTemplate</a></li><li><a href="global.html#getToastHTML">getToastHTML</a></li><li><a href="global.html#globalToast">globalToast</a></li><li><a href="global.html#guestLogin">guestLogin</a></li><li><a href="global.html#hydrateFromStorage">hydrateFromStorage</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initPortfolioMarquee">initPortfolioMarquee</a></li><li><a href="global.html#isLoadingTasks">isLoadingTasks</a></li><li><a href="global.html#isSflDebriefBoard">isSflDebriefBoard</a></li><li><a href="global.html#loadHtml2Pdf">loadHtml2Pdf</a></li><li><a href="global.html#logIn">logIn</a></li><li><a href="global.html#logInSubmit">logInSubmit</a></li><li><a href="global.html#logOut">logOut</a></li><li><a href="global.html#openBoardCreateDialog">openBoardCreateDialog</a></li><li><a href="global.html#openBoardDeleteToast">openBoardDeleteToast</a></li><li><a href="global.html#openBoardSettingsDialog">openBoardSettingsDialog</a></li><li><a href="global.html#patchBoardSettingsMembers">patchBoardSettingsMembers</a></li><li><a href="global.html#patchData">patchData</a></li><li><a href="global.html#persistStatus">persistStatus</a></li><li><a href="global.html#postData">postData</a></li><li><a href="global.html#prevDef">prevDef</a></li><li><a href="global.html#readCssVars">readCssVars</a></li><li><a href="global.html#redirectToBoard">redirectToBoard</a></li><li><a href="global.html#redirectToBoardWTask">redirectToBoardWTask</a></li><li><a href="global.html#redirectToBoards">redirectToBoards</a></li><li><a href="global.html#redirectToDashboard">redirectToDashboard</a></li><li><a href="global.html#registration">registration</a></li><li><a href="global.html#removeAuthCredentials">removeAuthCredentials</a></li><li><a href="global.html#removeBoardSettingsMember">removeBoardSettingsMember</a></li><li><a href="global.html#removeCurrentMember">removeCurrentMember</a></li><li><a href="global.html#renderBoardList">renderBoardList</a></li><li><a href="global.html#renderBoardSettingsDialog">renderBoardSettingsDialog</a></li><li><a href="global.html#renderBoardSettingsMemberList">renderBoardSettingsMemberList</a></li><li><a href="global.html#renderCreateDialogMemberList">renderCreateDialogMemberList</a></li><li><a href="global.html#renderDashboard">renderDashboard</a></li><li><a href="global.html#renderMemberAndTaskCount">renderMemberAndTaskCount</a></li><li><a href="global.html#renderRequestList">renderRequestList</a></li><li><a href="global.html#renderStatusBtn">renderStatusBtn</a></li><li><a href="global.html#renderStatusTable">renderStatusTable</a></li><li><a href="global.html#renderTaskList">renderTaskList</a></li><li><a href="global.html#renderUrgentTask">renderUrgentTask</a></li><li><a href="global.html#renderWelcomeMessage">renderWelcomeMessage</a></li><li><a href="global.html#requestList">requestList</a></li><li><a href="global.html#resetCurrentDialogs">resetCurrentDialogs</a></li><li><a href="global.html#resetMailError">resetMailError</a></li><li><a href="global.html#safePreview">safePreview</a></li><li><a href="global.html#sampleRequests">sampleRequests</a></li><li><a href="global.html#sanitizeFilename">sanitizeFilename</a></li><li><a href="global.html#setAuthCredentials">setAuthCredentials</a></li><li><a href="global.html#setDashboardData">setDashboardData</a></li><li><a href="global.html#setError">setError</a></li><li><a href="global.html#setHeader">setHeader</a></li><li><a href="global.html#setHeaderTemplate">setHeaderTemplate</a></li><li><a href="global.html#setNewBoardTitle">setNewBoardTitle</a></li><li><a href="global.html#setStatus">setStatus</a></li><li><a href="global.html#showToastMessage">showToastMessage</a></li><li><a href="global.html#signUpSubmit">signUpSubmit</a></li><li><a href="global.html#signUpValues">signUpValues</a></li><li><a href="global.html#stopProp">stopProp</a></li><li><a href="global.html#timeDifference">timeDifference</a></li><li><a href="global.html#toggleBoardTitleEdit">toggleBoardTitleEdit</a></li><li><a href="global.html#toggleDropdown">toggleDropdown</a></li><li><a href="global.html#toggleOpen">toggleOpen</a></li><li><a href="global.html#toggleOpenId">toggleOpenId</a></li><li><a href="global.html#togglePassword">togglePassword</a></li><li><a href="global.html#toggleSwitch">toggleSwitch</a></li><li><a href="global.html#toggleTicketsTypeSwitch">toggleTicketsTypeSwitch</a></li><li><a href="global.html#updateBoard">updateBoard</a></li><li><a href="global.html#validateBoardTitle">validateBoardTitle</a></li><li><a href="global.html#validateConfirmPW">validateConfirmPW</a></li><li><a href="global.html#validateEmail">validateEmail</a></li><li><a href="global.html#validateFullname">validateFullname</a></li><li><a href="global.html#validateLoginPW">validateLoginPW</a></li><li><a href="global.html#validateMemberEmail">validateMemberEmail</a></li><li><a href="global.html#validatePW">validatePW</a></li><li><a href="global.html#validatePrivacyCheckbox">validatePrivacyCheckbox</a></li><li><a href="global.html#validateRegistrationEmail">validateRegistrationEmail</a></li><li><a href="global.html#validateSignUp">validateSignUp</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Fri Aug 15 2025 17:41:07 GMT+0200 (Mitteleuropäische Sommerzeit)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

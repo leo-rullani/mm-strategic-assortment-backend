@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: requests/requests.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: requests/requests.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * @file requests_demo.js
+ * @summary Demo: static requests without a backend (UI-only).
+ * @description
+ * Provides a small in-memory/LocalStorage–backed request list to demonstrate
+ * rendering, filtering and inline status updates for assignments.
+ * Defaults:
+ *  - Start: 15:00
+ *  - End:   20:00
+ *  - Location: "ROC Sissach"
+ * Status is optionally persisted under {@link STORE_KEY} in LocalStorage.
+ */
+
+/**
+ * Default start time (HH:mm).
+ * @type {string}
+ */
+const DEFAULT_START = "15:00";
+
+/**
+ * Default end time (HH:mm).
+ * @type {string}
+ */
+const DEFAULT_END   = "20:00";
+
+/**
+ * Default location label.
+ * @type {string}
+ */
+const DEFAULT_LOCATION = "ROC Sissach";
+
+/**
+ * LocalStorage key for persisting request status values.
+ * @type {string}
+ */
+const STORE_KEY = "bbm-requests-demo-status";
+
+/**
+ * Allowed request statuses.
+ * @typedef {'open'|'accepted'|'declined'} RequestStatus
+ */
+
+/**
+ * Shape of a single demo request entry.
+ * @typedef {Object} Request
+ * @property {string} id
+ * @property {string} dateISO - Date in ISO format (YYYY-MM-DD).
+ * @property {string} function - Task function/role (e.g., "Camera 2").
+ * @property {string} project  - Project label.
+ * @property {string} start    - Start time (HH:mm).
+ * @property {string} end      - End time (HH:mm).
+ * @property {string} location - Location label (short).
+ * @property {RequestStatus} status
+ * @property {string} meeting_point
+ * @property {string} vehicle_out
+ * @property {string} vehicle_return
+ * @property {string} hotel
+ * @property {string} shuttle
+ * @property {string} deployment_location
+ * @property {string} order_number
+ */
+
+/** Four example requests. */
+const sampleRequests =
+/** @type {Request[]} */ ([
+  {
+    id: "r1",
+    dateISO: "2025-09-05",                    // Friday
+    function: "Graphics Operator",
+    project: "SFL Matchday 6",
+    start: DEFAULT_START,
+    end: DEFAULT_END,
+    location: DEFAULT_LOCATION,
+    status: "accepted",                       // preselected (green)
+    meeting_point: "-",
+    vehicle_out: "-",
+    vehicle_return: "-",
+    hotel: "-",
+    shuttle: "-",
+    deployment_location: "ROC Sissach",
+    order_number: "ORD-2401"
+  },
+  {
+    id: "r2",
+    dateISO: "2025-09-12",                    // Friday
+    function: "Camera 2",
+    project: "SFL Matchday 7",
+    start: DEFAULT_START,
+    end: DEFAULT_END,
+    location: DEFAULT_LOCATION,
+    status: "open",                           // (yellow)
+    meeting_point: "-",
+    vehicle_out: "-",
+    vehicle_return: "-",
+    hotel: "-",
+    shuttle: "-",
+    deployment_location: "ROC Sissach",
+    order_number: "ORD-2402"
+  },
+  {
+    id: "r3",
+    dateISO: "2025-09-20",                    // Saturday
+    function: "Replay",
+    project: "SFL Matchday 8",
+    start: DEFAULT_START,
+    end: DEFAULT_END,
+    location: DEFAULT_LOCATION,
+    status: "accepted",                       // preselected (green)
+    meeting_point: "-",
+    vehicle_out: "-",
+    vehicle_return: "-",
+    hotel: "-",
+    shuttle: "-",
+    deployment_location: "ROC Sissach",
+    order_number: "ORD-2403"
+  },
+  {
+    id: "r4",
+    dateISO: "2025-09-28",                    // Sunday
+    function: "Driver",
+    project: "SFL Matchday 9",
+    start: DEFAULT_START,
+    end: DEFAULT_END,
+    location: DEFAULT_LOCATION,
+    status: "open",                           // (yellow)
+    meeting_point: "-",
+    vehicle_out: "-",
+    vehicle_return: "-",
+    hotel: "-",
+    shuttle: "-",
+    deployment_location: "ROC Sissach",
+    order_number: "ORD-2404"
+  }
+]);
+
+/**
+ * Current list in the UI (after hydration/filtering).
+ * @type {Request[]}
+ */
+let requestList = [];
+
+/**
+ * Formats an ISO date string into a human-friendly label like "Friday, 5.9.2025".
+ *
+ * @param {string} iso - ISO date string (YYYY-MM-DD).
+ * @returns {string} Human-readable date.
+ */
+function formatDateNice(iso) {
+  const d = new Date(iso + "T00:00:00");
+  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  return `${days[d.getDay()]}, ${d.getDate()}.${d.getMonth()+1}.${d.getFullYear()}`;
+}
+
+/**
+ * Merges persisted status values from LocalStorage (if any) into the given list.
+ *
+ * @param {Request[]} list - Source list to hydrate.
+ * @returns {Request[]} New list with status possibly overridden from storage.
+ */
+function hydrateFromStorage(list) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
+    return list.map(item => saved[item.id] ? { ...item, status: saved[item.id] } : item);
+  } catch {
+    return list;
+  }
+}
+
+/**
+ * Persists the status for a single request into LocalStorage.
+ *
+ * @param {string} id - Request id.
+ * @param {RequestStatus} status - New status to persist.
+ * @returns {void}
+ */
+function persistStatus(id, status) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
+    saved[id] = status;
+    localStorage.setItem(STORE_KEY, JSON.stringify(saved));
+  } catch {}
+}
+
+/**
+ * Initializes (fetches demo data) and renders the request list.
+ * No backend is called; uses {@link sampleRequests}.
+ *
+ * @returns {Promise&lt;void>}
+ */
+async function getAndRenderRequestList() {
+  // No backend: use samples
+  requestList = hydrateFromStorage(sampleRequests);
+  renderRequestList();
+}
+
+/**
+ * Filters by a free-text query (matches date label, function, project, location, status)
+ * and renders the table body with the result set.
+ *
+ * Uses input value from `#request_search` and writes rows to `#request_list`.
+ *
+ * @returns {void}
+ */
+function renderRequestList() {
+  const tbody = document.getElementById("request_list");
+  const q = (document.getElementById("request_search")?.value || "").trim().toLowerCase();
+
+  const filtered = requestList.filter(r => {
+    const hay = [
+      formatDateNice(r.dateISO),
+      r.function || "", r.project || "", r.location || "", r.status || ""
+    ].join(" ").toLowerCase();
+    return q === "" || hay.includes(q);
+  });
+
+  if (!filtered.length) {
+    tbody.innerHTML = `&lt;tr>&lt;td colspan="14" class="font_prime_color text_center">...No requests available...&lt;/td>&lt;/tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(getRequestListEntryTemplate).join("");
+}
+
+/**
+ * Renders a single table row for a request.
+ *
+ * @param {Request} r - Request entry.
+ * @returns {string} HTML string for the `&lt;tr>`.
+ *
+ * @see renderStatusBtn
+ */
+function getRequestListEntryTemplate(r) {
+  const date = formatDateNice(r.dateISO);
+  const statusDotClass = r.status === "accepted" ? "status-accepted"
+                        : r.status === "declined" ? "status-declined"
+                        : "status-open";
+
+  return `
+  &lt;tr>
+    &lt;td>${date}&lt;/td>
+    &lt;td>${r.function || "-"}&lt;/td>
+    &lt;td>${r.project || "-"}&lt;/td>
+    &lt;td>${r.meeting_point || "-"}&lt;/td>
+    &lt;td>${r.vehicle_out || "-"}&lt;/td>
+    &lt;td>${r.start || "${DEFAULT_START}"}&lt;/td>
+    &lt;td>${r.end || "${DEFAULT_END}"}&lt;/td>
+    &lt;td>${r.vehicle_return || "-"}&lt;/td>
+    &lt;td>${r.location || "${DEFAULT_LOCATION}"}&lt;/td>
+    &lt;td>${r.hotel || "-"}&lt;/td>
+    &lt;td>${r.shuttle || "-"}&lt;/td>
+
+    &lt;td>
+      &lt;div class="status-cell">
+        &lt;span class="status-dot ${statusDotClass}" aria-hidden="true">&lt;/span>
+        &lt;div class="status-actions" role="group" aria-label="Set status">
+          ${renderStatusBtn(r.id, "open", r.status)}
+          ${renderStatusBtn(r.id, "accepted", r.status)}
+          ${renderStatusBtn(r.id, "declined", r.status)}
+        &lt;/div>
+      &lt;/div>
+    &lt;/td>
+
+    &lt;td>${r.deployment_location || "-"}&lt;/td>
+    &lt;td>${r.order_number || "-"}&lt;/td>
+  &lt;/tr>`;
+}
+
+/**
+ * Builds a status toggle button (Open/Accepted/Declined) for a given request id.
+ *
+ * @param {string} id - Request id to update when clicked.
+ * @param {RequestStatus} kind - Target status represented by the button.
+ * @param {RequestStatus} current - Current status, used to mark the active button.
+ * @returns {string} HTML string for the `&lt;button>`.
+ */
+function renderStatusBtn(id, kind, current) {
+  const label = kind.charAt(0).toUpperCase() + kind.slice(1); // Open/Accepted/Declined
+  const active = current === kind ? "active" : "";
+  const cls = kind === "accepted" ? "btn-accepted"
+           : kind === "declined" ? "btn-declined"
+           : "btn-open";
+  return `&lt;button class="status-btn ${cls} ${active}" onclick="setStatus('${id}','${kind}')">${label}&lt;/button>`;
+}
+
+/**
+ * Updates a request's status in the in-memory list, persists it, and re-renders.
+ *
+ * @param {string} id - Request id.
+ * @param {RequestStatus} newStatus - New status value.
+ * @returns {void}
+ */
+function setStatus(id, newStatus) {
+  requestList = requestList.map(r => r.id === id ? { ...r, status: newStatus } : r);
+  persistStatus(id, newStatus);
+  renderRequestList();
+}
+
+/**
+ * Optional globals (used by inline `onclick` handlers).
+ * @type {(typeof getAndRenderRequestList)}
+ */
+window.getAndRenderRequestList = getAndRenderRequestList;
+/** @type {(typeof renderRequestList)} */
+window.renderRequestList = renderRequestList;
+/** @type {(id:string, status:RequestStatus) => void} */
+window.setStatus = setStatus;</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#DEFAULT_END">DEFAULT_END</a></li><li><a href="global.html#DEFAULT_LOCATION">DEFAULT_LOCATION</a></li><li><a href="global.html#DEFAULT_START">DEFAULT_START</a></li><li><a href="global.html#IMG_PATH">IMG_PATH</a></li><li><a href="global.html#STORE_KEY">STORE_KEY</a></li><li><a href="global.html#THRESHOLD">THRESHOLD</a></li><li><a href="global.html#boardCreateCheckMailAddress">boardCreateCheckMailAddress</a></li><li><a href="global.html#boardCreateInviteMember">boardCreateInviteMember</a></li><li><a href="global.html#boardCreateSubmit">boardCreateSubmit</a></li><li><a href="global.html#boardList">boardList</a></li><li><a href="global.html#buildTaskPdfHtml">buildTaskPdfHtml</a></li><li><a href="global.html#cancelCreateBoard">cancelCreateBoard</a></li><li><a href="global.html#createBoard">createBoard</a></li><li><a href="global.html#currenTaskFilter">currenTaskFilter</a></li><li><a href="global.html#currentAssignedTickets">currentAssignedTickets</a></li><li><a href="global.html#currentBoards">currentBoards</a></li><li><a href="global.html#currentCreateBoard">currentCreateBoard</a></li><li><a href="global.html#currentReviewerTickets">currentReviewerTickets</a></li><li><a href="global.html#deleteBoard">deleteBoard</a></li><li><a href="global.html#downloadDebriefingPdf">downloadDebriefingPdf</a></li><li><a href="global.html#drawPieChart">drawPieChart</a></li><li><a href="global.html#drawWaveChart">drawWaveChart</a></li><li><a href="global.html#escapeHtml">escapeHtml</a></li><li><a href="global.html#exportTaskPdfFromCard">exportTaskPdfFromCard</a></li><li><a href="global.html#formatDate">formatDate</a></li><li><a href="global.html#formatDateNice">formatDateNice</a></li><li><a href="global.html#getAndRenderBoardList">getAndRenderBoardList</a></li><li><a href="global.html#getAndRenderRequestList">getAndRenderRequestList</a></li><li><a href="global.html#getAssignedTasks">getAssignedTasks</a></li><li><a href="global.html#getBoardCardMoveBtnTemplate">getBoardCardMoveBtnTemplate</a></li><li><a href="global.html#getBoardCardTemplate">getBoardCardTemplate</a></li><li><a href="global.html#getBoardlistEntrieTemplate">getBoardlistEntrieTemplate</a></li><li><a href="global.html#getBoards">getBoards</a></li><li><a href="global.html#getDetailTaskPersonTemplate">getDetailTaskPersonTemplate</a></li><li><a href="global.html#getMemberListTemplate">getMemberListTemplate</a></li><li><a href="global.html#getNearestDueDateTask">getNearestDueDateTask</a></li><li><a href="global.html#getPdfCss">getPdfCss</a></li><li><a href="global.html#getPieChartData">getPieChartData</a></li><li><a href="global.html#getRequestListEntryTemplate">getRequestListEntryTemplate</a></li><li><a href="global.html#getReviewerTasks">getReviewerTasks</a></li><li><a href="global.html#getSingleCommmentTemplate">getSingleCommmentTemplate</a></li><li><a href="global.html#getSingleTaskTemplate">getSingleTaskTemplate</a></li><li><a href="global.html#getTaskCreateMemberListEntrieTemplate">getTaskCreateMemberListEntrieTemplate</a></li><li><a href="global.html#getTaskListTemplate">getTaskListTemplate</a></li><li><a href="global.html#hydrateFromStorage">hydrateFromStorage</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initPortfolioMarquee">initPortfolioMarquee</a></li><li><a href="global.html#isLoadingTasks">isLoadingTasks</a></li><li><a href="global.html#isSflDebriefBoard">isSflDebriefBoard</a></li><li><a href="global.html#loadHtml2Pdf">loadHtml2Pdf</a></li><li><a href="global.html#openBoardCreateDialog">openBoardCreateDialog</a></li><li><a href="global.html#persistStatus">persistStatus</a></li><li><a href="global.html#readCssVars">readCssVars</a></li><li><a href="global.html#redirectToBoard">redirectToBoard</a></li><li><a href="global.html#redirectToBoardWTask">redirectToBoardWTask</a></li><li><a href="global.html#redirectToBoards">redirectToBoards</a></li><li><a href="global.html#removeCurrentMember">removeCurrentMember</a></li><li><a href="global.html#renderBoardList">renderBoardList</a></li><li><a href="global.html#renderCreateDialogMemberList">renderCreateDialogMemberList</a></li><li><a href="global.html#renderDashboard">renderDashboard</a></li><li><a href="global.html#renderMemberAndTaskCount">renderMemberAndTaskCount</a></li><li><a href="global.html#renderRequestList">renderRequestList</a></li><li><a href="global.html#renderStatusBtn">renderStatusBtn</a></li><li><a href="global.html#renderStatusTable">renderStatusTable</a></li><li><a href="global.html#renderTaskList">renderTaskList</a></li><li><a href="global.html#renderUrgentTask">renderUrgentTask</a></li><li><a href="global.html#renderWelcomeMessage">renderWelcomeMessage</a></li><li><a href="global.html#requestList">requestList</a></li><li><a href="global.html#resetMailError">resetMailError</a></li><li><a href="global.html#safePreview">safePreview</a></li><li><a href="global.html#sampleRequests">sampleRequests</a></li><li><a href="global.html#sanitizeFilename">sanitizeFilename</a></li><li><a href="global.html#setDashboardData">setDashboardData</a></li><li><a href="global.html#setStatus">setStatus</a></li><li><a href="global.html#toggleTicketsTypeSwitch">toggleTicketsTypeSwitch</a></li><li><a href="global.html#updateBoard">updateBoard</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Fri Aug 15 2025 19:05:43 GMT+0200 (Mitteleuropäische Sommerzeit)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

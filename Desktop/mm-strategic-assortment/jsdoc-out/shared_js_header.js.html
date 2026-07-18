@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: shared/js/header.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: shared/js/header.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * Logs out the current user by removing authentication credentials
+ * and redirecting to the login page.
+ */
+function logOut() {
+    removeAuthCredentials()
+    window.location.href = "../auth/login.html";
+}
+
+/**
+ * Sets up the header by rendering its template.
+ * @returns {Promise&lt;void>}
+ */
+async function setHeader() {
+    setHeaderTemplate()
+}
+
+/**
+ * Sets the header section's inner HTML by rendering the header template.
+ */
+function setHeaderTemplate() {
+    let headerRef = document.getElementById('head_content_right')
+    headerRef.innerHTML = getHeaderTemplate()
+}
+
+/**
+ * Returns the appropriate header HTML template based on the current page URL.
+ * Shows sign-up link on the login page, login link on the registration page,
+ * and the logged-in header template otherwise.
+ * @returns {string} The HTML string for the header.
+ */
+function getHeaderTemplate() {
+    const currentUrl = window.location.href;
+    
+    if (currentUrl.endsWith('login.html')) {
+        return `
+        &lt;div class="d_flex_cc_gm">
+            &lt;a href="./register.html" class="std_btn btn_prime pad_s d_flex_cc_gs">
+                &lt;img src="../../assets/icons/sign_up_icon.svg" alt="" srcset=""> 
+                Sign up
+            &lt;/a>
+        &lt;/div>`
+    } else if (currentUrl.endsWith('register.html')) {
+        return `
+        &lt;div class="d_flex_cc_gm">
+            &lt;a href="./login.html" class="std_btn btn_prime pad_s d_flex_cc_gs">
+                &lt;img src="../../assets/icons/login_icon.svg" alt="" srcset=""> 
+                Log in
+            &lt;/a>
+        &lt;/div>`
+    } else {
+        return getLogedInHeaderTemplate()
+    }
+}
+
+/**
+ * Closes all menu toggle buttons except the specified one by setting their 'open' attribute to 'false'.
+ * @param {HTMLElement} element - The menu button element to keep open.
+ */
+function closeOtherMenuBtns(element) {
+    let menuBtns = document.querySelectorAll('.menu_toggle')
+    menuBtns.forEach(btn => {
+        if (btn !== element) {
+            btn.setAttribute('open', 'false')
+        }
+    })
+}
+
+/**
+ * Returns the header HTML template for logged-in users.
+ * Redirects to login if no authenticated user ID is found,
+ * except on imprint or privacy pages.
+ * @returns {string} The HTML string for the logged-in header.
+ */
+function getLogedInHeaderTemplate() {
+    const currentUrl = window.location.href;
+    let currentUserId = getAuthUserId();
+    if(!currentUserId){
+        if (currentUrl.endsWith('/imprint/index.html') || currentUrl.endsWith('/privacy/index.html')) {
+            return `
+            &lt;div class="d_flex_cc_gm">
+                &lt;a href="../../pages/auth/login.html" class="std_btn btn_prime pad_s d_flex_cc_gs">
+                    &lt;img src="../../assets/icons/login_icon.svg" alt="" srcset=""> 
+                    Log in
+                &lt;/a>
+            &lt;/div>`
+        } else {
+            window.location.href = "../auth/login.html"
+        }
+    }
+    let currentUser = getAuthUser();
+    return `
+        &lt;div class="menu_btn_wrapper">
+            &lt;button onclick="closeOtherMenuBtns(this); toggleOpen(this); stopProp(event)" closable="true" open="false" class="menu_toggle std_btn menu_btn pad_s d_flex_cc_gs">
+                &lt;img src="../../assets/icons/menu.svg" alt="" srcset="">
+            &lt;/button>
+            &lt;div class="menu_content d_flex_cc_gm f_d_c">
+                &lt;p class="d_flex_sc_gm font_white_color" onclick="window.location.href = '../dashboard/index.html'">
+                    &lt;img src="../../assets/icons/dashboard.svg" alt="" srcset=""> 
+                    Dashboard
+                &lt;/p>
+                &lt;p class="d_flex_sc_gm font_white_color" onclick="window.location.href = '../boards/index.html'">
+                    &lt;img src="../../assets/icons/view_board_yellow.svg" alt="" srcset=""> 
+                    Boards
+                &lt;/p>
+                &lt;p class="d_flex_sc_gm font_white_color" onclick="window.location.href = '../requests/index.html'">
+                    &lt;img src="../../assets/icons/requests.svg" alt="" width="16" srcset=""> 
+                    Requests
+                &lt;/p>
+            &lt;/div>
+        &lt;/div>
+        &lt;div class="menu_btn_wrapper"> 
+            &lt;button onclick="closeOtherMenuBtns(this); toggleOpen(this); stopProp(event)" closable="true" open="false" class="menu_toggle profile_circle color_${currentUser.initials[0]}">${currentUser.initials}&lt;/button>   
+            &lt;div class="menu_content d_flex_cc_gm f_d_c">
+                &lt;p class="d_flex_cc_gm font_white_color" onclick="logOut()">
+                    &lt;img src="../../assets/icons/logout.svg" alt="" srcset=""> 
+                    Log out 
+                &lt;/p>
+            &lt;/div>
+        &lt;/div>`;
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#API_BASE_URL">API_BASE_URL</a></li><li><a href="global.html#BOARDS_URL">BOARDS_URL</a></li><li><a href="global.html#DEFAULT_END">DEFAULT_END</a></li><li><a href="global.html#DEFAULT_LOCATION">DEFAULT_LOCATION</a></li><li><a href="global.html#DEFAULT_START">DEFAULT_START</a></li><li><a href="global.html#GFX_MANUAL_URL">GFX_MANUAL_URL</a></li><li><a href="global.html#GUEST_LOGIN">GUEST_LOGIN</a></li><li><a href="global.html#IMG_PATH">IMG_PATH</a></li><li><a href="global.html#LOGIN_URL">LOGIN_URL</a></li><li><a href="global.html#MAIL_CHECK_URL">MAIL_CHECK_URL</a></li><li><a href="global.html#REGISTER_URL">REGISTER_URL</a></li><li><a href="global.html#STORE_KEY">STORE_KEY</a></li><li><a href="global.html#TASKS_ASSIGNED_URL">TASKS_ASSIGNED_URL</a></li><li><a href="global.html#TASKS_REVIEWER_URL">TASKS_REVIEWER_URL</a></li><li><a href="global.html#TASKS_URL">TASKS_URL</a></li><li><a href="global.html#THRESHOLD">THRESHOLD</a></li><li><a href="global.html#boardCreateCheckMailAddress">boardCreateCheckMailAddress</a></li><li><a href="global.html#boardCreateInviteMember">boardCreateInviteMember</a></li><li><a href="global.html#boardCreateSubmit">boardCreateSubmit</a></li><li><a href="global.html#boardList">boardList</a></li><li><a href="global.html#boardSettingsCheckMailAddress">boardSettingsCheckMailAddress</a></li><li><a href="global.html#boardSettingsInviteMember">boardSettingsInviteMember</a></li><li><a href="global.html#buildTaskPdfHtml">buildTaskPdfHtml</a></li><li><a href="global.html#cancelCreateBoard">cancelCreateBoard</a></li><li><a href="global.html#checkMailAddress">checkMailAddress</a></li><li><a href="global.html#closeAllDropdowns">closeAllDropdowns</a></li><li><a href="global.html#closeDialog">closeDialog</a></li><li><a href="global.html#closeOpenId">closeOpenId</a></li><li><a href="global.html#closeOtherMenuBtns">closeOtherMenuBtns</a></li><li><a href="global.html#createBoard">createBoard</a></li><li><a href="global.html#createHeaders">createHeaders</a></li><li><a href="global.html#currenTaskFilter">currenTaskFilter</a></li><li><a href="global.html#currentAssignedTickets">currentAssignedTickets</a></li><li><a href="global.html#currentBoards">currentBoards</a></li><li><a href="global.html#currentCreateBoard">currentCreateBoard</a></li><li><a href="global.html#currentReviewerTickets">currentReviewerTickets</a></li><li><a href="global.html#currentSettingsBoard">currentSettingsBoard</a></li><li><a href="global.html#deleteBoard">deleteBoard</a></li><li><a href="global.html#deleteData">deleteData</a></li><li><a href="global.html#deleteLastingToast">deleteLastingToast</a></li><li><a href="global.html#downloadDebriefingPdf">downloadDebriefingPdf</a></li><li><a href="global.html#drawPieChart">drawPieChart</a></li><li><a href="global.html#drawWaveChart">drawWaveChart</a></li><li><a href="global.html#escapeHtml">escapeHtml</a></li><li><a href="global.html#exportTaskPdfFromCard">exportTaskPdfFromCard</a></li><li><a href="global.html#extractErrorMessages">extractErrorMessages</a></li><li><a href="global.html#formatDate">formatDate</a></li><li><a href="global.html#formatDateNice">formatDateNice</a></li><li><a href="global.html#getAndRenderBoardList">getAndRenderBoardList</a></li><li><a href="global.html#getAndRenderRequestList">getAndRenderRequestList</a></li><li><a href="global.html#getAssignedTasks">getAssignedTasks</a></li><li><a href="global.html#getAuthEmail">getAuthEmail</a></li><li><a href="global.html#getAuthFullname">getAuthFullname</a></li><li><a href="global.html#getAuthToken">getAuthToken</a></li><li><a href="global.html#getAuthUser">getAuthUser</a></li><li><a href="global.html#getAuthUserId">getAuthUserId</a></li><li><a href="global.html#getBoardById">getBoardById</a></li><li><a href="global.html#getBoardCardMoveBtnTemplate">getBoardCardMoveBtnTemplate</a></li><li><a href="global.html#getBoardCardTemplate">getBoardCardTemplate</a></li><li><a href="global.html#getBoardlistEntrieTemplate">getBoardlistEntrieTemplate</a></li><li><a href="global.html#getBoards">getBoards</a></li><li><a href="global.html#getData">getData</a></li><li><a href="global.html#getDetailTaskPersonTemplate">getDetailTaskPersonTemplate</a></li><li><a href="global.html#getErrorMessage">getErrorMessage</a></li><li><a href="global.html#getFormData">getFormData</a></li><li><a href="global.html#getHeaderTemplate">getHeaderTemplate</a></li><li><a href="global.html#getInitials">getInitials</a></li><li><a href="global.html#getLogedInHeaderTemplate">getLogedInHeaderTemplate</a></li><li><a href="global.html#getMemberListTemplate">getMemberListTemplate</a></li><li><a href="global.html#getNearestDueDateTask">getNearestDueDateTask</a></li><li><a href="global.html#getParamFromUrl">getParamFromUrl</a></li><li><a href="global.html#getPdfCss">getPdfCss</a></li><li><a href="global.html#getPieChartData">getPieChartData</a></li><li><a href="global.html#getRequestListEntryTemplate">getRequestListEntryTemplate</a></li><li><a href="global.html#getReviewerTasks">getReviewerTasks</a></li><li><a href="global.html#getSingleCommmentTemplate">getSingleCommmentTemplate</a></li><li><a href="global.html#getSingleTaskTemplate">getSingleTaskTemplate</a></li><li><a href="global.html#getTaskCreateMemberListEntrieTemplate">getTaskCreateMemberListEntrieTemplate</a></li><li><a href="global.html#getTaskListTemplate">getTaskListTemplate</a></li><li><a href="global.html#getToastHTML">getToastHTML</a></li><li><a href="global.html#globalToast">globalToast</a></li><li><a href="global.html#guestLogin">guestLogin</a></li><li><a href="global.html#hydrateFromStorage">hydrateFromStorage</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initPortfolioMarquee">initPortfolioMarquee</a></li><li><a href="global.html#isLoadingTasks">isLoadingTasks</a></li><li><a href="global.html#isSflDebriefBoard">isSflDebriefBoard</a></li><li><a href="global.html#loadHtml2Pdf">loadHtml2Pdf</a></li><li><a href="global.html#logIn">logIn</a></li><li><a href="global.html#logInSubmit">logInSubmit</a></li><li><a href="global.html#logOut">logOut</a></li><li><a href="global.html#openBoardCreateDialog">openBoardCreateDialog</a></li><li><a href="global.html#openBoardDeleteToast">openBoardDeleteToast</a></li><li><a href="global.html#openBoardSettingsDialog">openBoardSettingsDialog</a></li><li><a href="global.html#patchBoardSettingsMembers">patchBoardSettingsMembers</a></li><li><a href="global.html#patchData">patchData</a></li><li><a href="global.html#persistStatus">persistStatus</a></li><li><a href="global.html#postData">postData</a></li><li><a href="global.html#prevDef">prevDef</a></li><li><a href="global.html#readCssVars">readCssVars</a></li><li><a href="global.html#redirectToBoard">redirectToBoard</a></li><li><a href="global.html#redirectToBoardWTask">redirectToBoardWTask</a></li><li><a href="global.html#redirectToBoards">redirectToBoards</a></li><li><a href="global.html#redirectToDashboard">redirectToDashboard</a></li><li><a href="global.html#registration">registration</a></li><li><a href="global.html#removeAuthCredentials">removeAuthCredentials</a></li><li><a href="global.html#removeBoardSettingsMember">removeBoardSettingsMember</a></li><li><a href="global.html#removeCurrentMember">removeCurrentMember</a></li><li><a href="global.html#renderBoardList">renderBoardList</a></li><li><a href="global.html#renderBoardSettingsDialog">renderBoardSettingsDialog</a></li><li><a href="global.html#renderBoardSettingsMemberList">renderBoardSettingsMemberList</a></li><li><a href="global.html#renderCreateDialogMemberList">renderCreateDialogMemberList</a></li><li><a href="global.html#renderDashboard">renderDashboard</a></li><li><a href="global.html#renderMemberAndTaskCount">renderMemberAndTaskCount</a></li><li><a href="global.html#renderRequestList">renderRequestList</a></li><li><a href="global.html#renderStatusBtn">renderStatusBtn</a></li><li><a href="global.html#renderStatusTable">renderStatusTable</a></li><li><a href="global.html#renderTaskList">renderTaskList</a></li><li><a href="global.html#renderUrgentTask">renderUrgentTask</a></li><li><a href="global.html#renderWelcomeMessage">renderWelcomeMessage</a></li><li><a href="global.html#requestList">requestList</a></li><li><a href="global.html#resetCurrentDialogs">resetCurrentDialogs</a></li><li><a href="global.html#resetMailError">resetMailError</a></li><li><a href="global.html#safePreview">safePreview</a></li><li><a href="global.html#sampleRequests">sampleRequests</a></li><li><a href="global.html#sanitizeFilename">sanitizeFilename</a></li><li><a href="global.html#setAuthCredentials">setAuthCredentials</a></li><li><a href="global.html#setDashboardData">setDashboardData</a></li><li><a href="global.html#setError">setError</a></li><li><a href="global.html#setHeader">setHeader</a></li><li><a href="global.html#setHeaderTemplate">setHeaderTemplate</a></li><li><a href="global.html#setNewBoardTitle">setNewBoardTitle</a></li><li><a href="global.html#setStatus">setStatus</a></li><li><a href="global.html#showToastMessage">showToastMessage</a></li><li><a href="global.html#signUpSubmit">signUpSubmit</a></li><li><a href="global.html#signUpValues">signUpValues</a></li><li><a href="global.html#stopProp">stopProp</a></li><li><a href="global.html#timeDifference">timeDifference</a></li><li><a href="global.html#toggleBoardTitleEdit">toggleBoardTitleEdit</a></li><li><a href="global.html#toggleDropdown">toggleDropdown</a></li><li><a href="global.html#toggleOpen">toggleOpen</a></li><li><a href="global.html#toggleOpenId">toggleOpenId</a></li><li><a href="global.html#togglePassword">togglePassword</a></li><li><a href="global.html#toggleSwitch">toggleSwitch</a></li><li><a href="global.html#toggleTicketsTypeSwitch">toggleTicketsTypeSwitch</a></li><li><a href="global.html#updateBoard">updateBoard</a></li><li><a href="global.html#validateBoardTitle">validateBoardTitle</a></li><li><a href="global.html#validateConfirmPW">validateConfirmPW</a></li><li><a href="global.html#validateEmail">validateEmail</a></li><li><a href="global.html#validateFullname">validateFullname</a></li><li><a href="global.html#validateLoginPW">validateLoginPW</a></li><li><a href="global.html#validateMemberEmail">validateMemberEmail</a></li><li><a href="global.html#validatePW">validatePW</a></li><li><a href="global.html#validatePrivacyCheckbox">validatePrivacyCheckbox</a></li><li><a href="global.html#validateRegistrationEmail">validateRegistrationEmail</a></li><li><a href="global.html#validateSignUp">validateSignUp</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Fri Aug 15 2025 17:41:07 GMT+0200 (Mitteleuropäische Sommerzeit)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

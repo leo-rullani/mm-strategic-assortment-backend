@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BBM – Dashboard (Greeting Demo)</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --text: #111111;
+    }
+    html { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: inherit; }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4vw;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+      line-height: 1.5;
+    }
+    section {
+      width: 100%;
+      max-width: 720px;
+      background: var(--panel);
+      border-radius: 12px;
+      padding: clamp(16px, 4vw, 32px);
+      box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.08);
+    }
+    p {
+      margin: 0;
+      font-weight: 600;
+      font-size: clamp(1.25rem, 4vw, 2rem);
+    }
+    @media (min-width: 768px) {
+      body { padding: 6vw; }
+      p { font-size: clamp(1.5rem, 2.5vw, 2.25rem); }
+      section { border-radius: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <section>
+    <p id="welcome_message">Hello, Vorname Nachname</p>
+  </section>
+  <script>
+    const user={fullname:"Vorname Nachname"};
+    const hour=new Date().getHours();
+    let greeting="Good night";
+    if(hour>=5&&hour<12)greeting="Good morning";
+    else if(hour>=12&&hour<17)greeting="Good afternoon";
+    else if(hour>=17&&hour<22)greeting="Good evening";
+    document.getElementById("welcome_message").textContent=`${greeting}, ${user.fullname}`;
+  </script>
+</body>
+</html>

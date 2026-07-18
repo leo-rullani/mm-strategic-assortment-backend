@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: boards/boards.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: boards/boards.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * Object holding the current board being created.
+ * @type {{title: string, members: Array}}
+ */
+let currentCreateBoard = {
+    "title" : "",
+    "members":[]
+}
+
+/**
+ * Array storing all created boards.
+ * @type {Array}
+ */
+let boardList = []
+
+/**
+ * Redirects the user to the board page with the given board ID.
+ * @param {string|number} id - The unique identifier of the board.
+ */
+function redirectToBoard(id){
+    window.location.href = "../../pages/board/?id="+id
+}
+
+/**
+ * Asynchronously fetches all boards and renders the board list if available.
+ * Updates the global boardList variable.
+ * @returns {Promise&lt;void>}
+ */
+async function getAndRenderBoardList(){
+    boardList = await getBoards()
+    if(boardList){
+        renderBoardList()
+    }
+}
+
+/**
+ * Asynchronously fetches the list of boards from the backend API.
+ * @returns {Promise&lt;Array|null>} Returns an array of boards if successful, otherwise null.
+ */
+async function getBoards(){
+    let boardResp = await getData(BOARDS_URL);
+
+    if (boardResp.ok) {
+        return boardResp.data;
+    } else {
+        return null
+    }
+}
+
+/**
+ * Opens the board creation dialog, resets the currentCreateBoard object,
+ * and updates the UI elements for creating a new board.
+ */
+function openBoardCreateDialog(){
+    toggleOpenId('dialog_wrapper')
+    document.getElementById("dialog_wrapper").setAttribute("current-dialog", "board_create");
+    currentCreateBoard = {
+        "title" : "",
+        "members":[]
+    }
+    renderCreateDialogMemberList()
+    document.getElementById("board_title_input").value = "";
+}
+
+/**
+ * Handles the process of inviting a member to the board during creation.
+ * Validates the entered email and proceeds if the email is valid.
+ * @returns {Promise&lt;void>}
+ */
+async function boardCreateInviteMember(){
+    let element = document.getElementById("create_board_email_input")
+    let valid = validateMemberEmail(element, currentCreateBoard.members)
+    if(valid){
+        boardCreateCheckMailAddress(element)
+    }
+}
+
+/**
+ * Resets the mail error state in the email input group for board creation.
+ */
+function resetMailError(){
+    setError(false, "create_board_email_input_group")
+}
+
+/**
+ * Checks if the given email address exists and, if valid,
+ * adds the corresponding member to the currentCreateBoard.members array.
+ * Updates the member list UI or displays an error if the email is invalid.
+ * @param {HTMLInputElement} element - The input element containing the email address.
+ * @returns {Promise&lt;void>}
+ */
+async function boardCreateCheckMailAddress(element){
+    let mail = element.value.trim()
+    let resp = await checkMailAddress(mail)
+    if(resp){
+        currentCreateBoard.members.push(resp)
+        renderCreateDialogMemberList()
+        document.getElementById("create_board_email_input").value = "";
+    } else {
+        document.getElementById("email_error_label").innerText = "This email adress doesn't exist."
+        setError(true, element.id + "_group")
+    }
+}
+
+/**
+ * Handles the submission of the board creation form.
+ * Validates the board title and, if valid, sets the title in currentCreateBoard
+ * and calls the createBoard function.
+ * @param {Event} event - The form submission event.
+ * @returns {Promise&lt;void>}
+ */
+async function boardCreateSubmit(event) {
+    event.preventDefault();
+    let element = document.getElementById("board_title_input")
+    if(validateBoardTitle(element)){
+        currentCreateBoard.title = element.value.trim()
+        await createBoard()
+    }
+}
+
+/**
+ * Creates a new board by sending its data to the backend.
+ * If creation fails, displays error messages; otherwise closes the dialog and refreshes the board list.
+ * @returns {Promise&lt;void>}
+ */
+async function createBoard(){
+    let boardMemberIds = currentCreateBoard.members.map(member => member.id)
+    let response = await postData(BOARDS_URL, {"title": currentCreateBoard.title, "members": boardMemberIds});
+    if (!response.ok) {
+        let errorArr = extractErrorMessages(response.data)
+        showToastMessage(true, errorArr)
+    } else {
+        toggleOpenId('dialog_wrapper');
+        await getAndRenderBoardList();
+    }
+}
+
+/**
+ * Cancels the board creation process, resets the currentCreateBoard object,
+ * and closes the board creation dialog.
+ */
+function cancelCreateBoard(){
+    currentCreateBoard = {
+        "title" : "",
+        "members":[]
+    }
+    toggleOpenId('dialog_wrapper')
+}
+
+/**
+ * Renders the list of invited members in the board creation dialog.
+ * Updates the UI element with the current members from currentCreateBoard.
+ */
+function renderCreateDialogMemberList(){
+    let htmltext = "";
+    currentCreateBoard.members.forEach(member => {
+        htmltext +=  `&lt;li>${member.email}&lt;button onclick="removeCurrentMember(${member.id})" class="std_btn btn_prime">Remove&lt;/button>&lt;/li>`
+    });
+    document.getElementById("create_board_member_list").innerHTML = htmltext;
+}
+
+/**
+ * Removes a member from the currentCreateBoard.members array by index
+ * and updates the member list in the dialog UI.
+ * @param {number} id - The index of the member to remove.
+ */
+function removeCurrentMember(id){
+    currentCreateBoard.members = currentCreateBoard.members.splice(id, 1);
+    renderCreateDialogMemberList();
+}
+
+/**
+ * Renders the list of boards filtered by the current search input.
+ * Updates the board list UI with matching boards or a message if none are found.
+ */
+function renderBoardList(){
+    let htmltext = "";
+    let searchValue = document.getElementById("board_search").value.trim().toLowerCase();
+    let renderBoardList = boardList.filter(board => board.title.toLowerCase().includes(searchValue));
+    renderBoardList.forEach(board => {
+        htmltext += getBoardlistEntrieTemplate(board);
+    });
+    if(renderBoardList.length &lt;= 0){
+        htmltext = `&lt;h3 class="font_prime_color">...No boards available...&lt;/h3>`
+    }
+    document.getElementById("board_list").innerHTML = htmltext;
+}
+
+/**
+ * Returns the HTML template for a single board entry in the board list.
+ * @param {Object} board - The board object containing board details.
+ * @returns {string} The HTML string representing the board entry.
+ */
+function getBoardlistEntrieTemplate(board){
+    return `    &lt;li class="card d_flex_sc_gl w_full" onclick="redirectToBoard(${board.id})">
+                    &lt;h3>${board.title}&lt;/h3>
+                    &lt;div class="board_list_entry_part d_flex_sc_gs">
+                        &lt;img src="../../assets/icons/member_icon.svg" alt="">
+                        &lt;p class="fs_m">${board.member_count}&lt;/p>
+                        &lt;p>Members&lt;/p>
+                    &lt;/div>
+                    &lt;div class="board_list_entry_part d_flex_sc_gs">
+                        &lt;img src="../../assets/icons/ticket_icon.svg" alt="">
+                        &lt;p class="fs_m">${board.ticket_count}&lt;/p>
+                        &lt;p>Tickets&lt;/p>
+                    &lt;/div>
+                    &lt;div class="board_list_entry_part d_flex_sc_gs">
+                        &lt;img src="../../assets/icons/assign_icon.svg" alt="">
+                        &lt;p class="fs_m">${board.tasks_to_do_count}&lt;/p>
+                        &lt;p>Tasks To-do&lt;/p>
+                    &lt;/div>
+                    &lt;div class="board_list_entry_part d_flex_sc_gs">
+                        &lt;div class="priority-badge" priority="high">&lt;/div>
+                        &lt;p class="fs_m">${board.tasks_high_prio_count}&lt;/p>
+                        &lt;p>High Prio&lt;/p>
+                    &lt;/div>
+                    &lt;button onclick="openBoardSettingsDialog(${board.id}); stopProp(event)" class="std_btn d_flex_sc_gs board_settings_btn">
+                        &lt;img src="../../assets/icons/settings.svg" alt="">
+                    &lt;/button>
+                &lt;/li>`
+}
+
+/**
+ * Updates the current board with the provided data by sending a PATCH request to the backend.
+ * Shows error messages if the update fails; otherwise refreshes the board list.
+ * @param {Object} data - The data to update the board with.
+ * @returns {Promise&lt;Object>} The response from the backend.
+ */
+async function updateBoard(data){
+    let response = await patchData(BOARDS_URL + currentSettingsBoard.id + "/", data);
+    if (!response.ok) {
+        let errorArr = extractErrorMessages(response.data)
+        showToastMessage(true, errorArr)
+    } else {
+        await getAndRenderBoardList();
+    }
+    return response;
+}
+
+/**
+ * Deletes the current board by sending a DELETE request to the backend.
+ * Closes the dialog, refreshes the board list, and removes any lasting toast messages.
+ * @returns {Promise&lt;void>}
+ */
+async function deleteBoard(){
+    await deleteData(BOARDS_URL + currentSettingsBoard.id + "/");
+    toggleOpenId('dialog_wrapper');
+    getAndRenderBoardList();
+    deleteLastingToast()
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#DEFAULT_END">DEFAULT_END</a></li><li><a href="global.html#DEFAULT_LOCATION">DEFAULT_LOCATION</a></li><li><a href="global.html#DEFAULT_START">DEFAULT_START</a></li><li><a href="global.html#IMG_PATH">IMG_PATH</a></li><li><a href="global.html#STORE_KEY">STORE_KEY</a></li><li><a href="global.html#THRESHOLD">THRESHOLD</a></li><li><a href="global.html#boardCreateCheckMailAddress">boardCreateCheckMailAddress</a></li><li><a href="global.html#boardCreateInviteMember">boardCreateInviteMember</a></li><li><a href="global.html#boardCreateSubmit">boardCreateSubmit</a></li><li><a href="global.html#boardList">boardList</a></li><li><a href="global.html#buildTaskPdfHtml">buildTaskPdfHtml</a></li><li><a href="global.html#cancelCreateBoard">cancelCreateBoard</a></li><li><a href="global.html#createBoard">createBoard</a></li><li><a href="global.html#currenTaskFilter">currenTaskFilter</a></li><li><a href="global.html#currentAssignedTickets">currentAssignedTickets</a></li><li><a href="global.html#currentBoards">currentBoards</a></li><li><a href="global.html#currentCreateBoard">currentCreateBoard</a></li><li><a href="global.html#currentReviewerTickets">currentReviewerTickets</a></li><li><a href="global.html#deleteBoard">deleteBoard</a></li><li><a href="global.html#downloadDebriefingPdf">downloadDebriefingPdf</a></li><li><a href="global.html#drawPieChart">drawPieChart</a></li><li><a href="global.html#drawWaveChart">drawWaveChart</a></li><li><a href="global.html#escapeHtml">escapeHtml</a></li><li><a href="global.html#exportTaskPdfFromCard">exportTaskPdfFromCard</a></li><li><a href="global.html#formatDate">formatDate</a></li><li><a href="global.html#formatDateNice">formatDateNice</a></li><li><a href="global.html#getAndRenderBoardList">getAndRenderBoardList</a></li><li><a href="global.html#getAndRenderRequestList">getAndRenderRequestList</a></li><li><a href="global.html#getAssignedTasks">getAssignedTasks</a></li><li><a href="global.html#getBoardCardMoveBtnTemplate">getBoardCardMoveBtnTemplate</a></li><li><a href="global.html#getBoardCardTemplate">getBoardCardTemplate</a></li><li><a href="global.html#getBoardlistEntrieTemplate">getBoardlistEntrieTemplate</a></li><li><a href="global.html#getBoards">getBoards</a></li><li><a href="global.html#getDetailTaskPersonTemplate">getDetailTaskPersonTemplate</a></li><li><a href="global.html#getMemberListTemplate">getMemberListTemplate</a></li><li><a href="global.html#getNearestDueDateTask">getNearestDueDateTask</a></li><li><a href="global.html#getPdfCss">getPdfCss</a></li><li><a href="global.html#getPieChartData">getPieChartData</a></li><li><a href="global.html#getRequestListEntryTemplate">getRequestListEntryTemplate</a></li><li><a href="global.html#getReviewerTasks">getReviewerTasks</a></li><li><a href="global.html#getSingleCommmentTemplate">getSingleCommmentTemplate</a></li><li><a href="global.html#getSingleTaskTemplate">getSingleTaskTemplate</a></li><li><a href="global.html#getTaskCreateMemberListEntrieTemplate">getTaskCreateMemberListEntrieTemplate</a></li><li><a href="global.html#getTaskListTemplate">getTaskListTemplate</a></li><li><a href="global.html#hydrateFromStorage">hydrateFromStorage</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initPortfolioMarquee">initPortfolioMarquee</a></li><li><a href="global.html#isLoadingTasks">isLoadingTasks</a></li><li><a href="global.html#isSflDebriefBoard">isSflDebriefBoard</a></li><li><a href="global.html#loadHtml2Pdf">loadHtml2Pdf</a></li><li><a href="global.html#openBoardCreateDialog">openBoardCreateDialog</a></li><li><a href="global.html#persistStatus">persistStatus</a></li><li><a href="global.html#readCssVars">readCssVars</a></li><li><a href="global.html#redirectToBoard">redirectToBoard</a></li><li><a href="global.html#redirectToBoardWTask">redirectToBoardWTask</a></li><li><a href="global.html#redirectToBoards">redirectToBoards</a></li><li><a href="global.html#removeCurrentMember">removeCurrentMember</a></li><li><a href="global.html#renderBoardList">renderBoardList</a></li><li><a href="global.html#renderCreateDialogMemberList">renderCreateDialogMemberList</a></li><li><a href="global.html#renderDashboard">renderDashboard</a></li><li><a href="global.html#renderMemberAndTaskCount">renderMemberAndTaskCount</a></li><li><a href="global.html#renderRequestList">renderRequestList</a></li><li><a href="global.html#renderStatusBtn">renderStatusBtn</a></li><li><a href="global.html#renderStatusTable">renderStatusTable</a></li><li><a href="global.html#renderTaskList">renderTaskList</a></li><li><a href="global.html#renderUrgentTask">renderUrgentTask</a></li><li><a href="global.html#renderWelcomeMessage">renderWelcomeMessage</a></li><li><a href="global.html#requestList">requestList</a></li><li><a href="global.html#resetMailError">resetMailError</a></li><li><a href="global.html#safePreview">safePreview</a></li><li><a href="global.html#sampleRequests">sampleRequests</a></li><li><a href="global.html#sanitizeFilename">sanitizeFilename</a></li><li><a href="global.html#setDashboardData">setDashboardData</a></li><li><a href="global.html#setStatus">setStatus</a></li><li><a href="global.html#toggleTicketsTypeSwitch">toggleTicketsTypeSwitch</a></li><li><a href="global.html#updateBoard">updateBoard</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Fri Aug 15 2025 19:05:43 GMT+0200 (Mitteleuropäische Sommerzeit)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>

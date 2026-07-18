@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: shared/js/board_settings.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: shared/js/board_settings.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * Stores the currently selected board for settings.
+ * @type {Object|undefined}
+ */
+let currentSettingsBoard;
+
+/**
+ * Validates the board title input field to ensure length is between 3 and 63 characters.
+ * Sets or clears error state accordingly.
+ * @param {HTMLInputElement} element - The board title input element.
+ * @returns {boolean} True if valid, false otherwise.
+ */
+function validateBoardTitle(element){
+    let valid = element.value.trim().length > 2 &amp;&amp; element.value.trim().length &lt; 64;
+    setError(!valid, element.id + "_group")
+    return valid
+}
+
+/**
+ * Validates an email input against a regex and checks for duplicates in the member list.
+ * Updates error message label and sets error state accordingly.
+ * @param {HTMLInputElement} element - The email input element to validate.
+ * @param {Array&lt;Object>} memberlist - The list of current members to check for duplicates.
+ * @returns {boolean} True if the email is valid and not a duplicate, false otherwise.
+ */
+function validateMemberEmail(element, memberlist) {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    let valid = emailRegex.test(element.value.trim())
+    let labelRef = document.getElementById("email_error_label")
+    labelRef.innerText = "Please enter a valid email address."
+
+    if(valid){
+        valid = memberlist.filter( user => user.email == element.value.trim()).length == 0
+        labelRef.innerText = "This email adress already exist as member."
+    }
+    
+    setError(!valid, element.id + "_group")
+    return valid 
+}
+
+/**
+ * Opens the board settings dialog for the board with the given ID.
+ * Fetches the board data, sets the currentSettingsBoard, and renders the settings dialog.
+ * Logs an error if the board is not found.
+ * @param {string|number} id - The unique identifier of the board.
+ * @returns {Promise&lt;void>}
+ */
+async function openBoardSettingsDialog(id) {
+    let board = await getBoardById(id);
+    if (board) {
+        currentSettingsBoard = board;
+        document.getElementById("dialog_wrapper").setAttribute("current-dialog", "board_settings");
+        toggleOpenId('dialog_wrapper');
+        renderBoardSettingsDialog();
+    } else {
+        console.error("Board not found");
+    }
+}
+
+/**
+ * Fetches a board by its ID from the backend.
+ * @param {string|number} id - The unique identifier of the board.
+ * @returns {Promise&lt;Object|null>} The board data if found, otherwise null.
+ */
+async function getBoardById(id) {
+    let response = await getData(BOARDS_URL + id + "/");
+    if (response.ok) {
+        return response.data;
+    } else {
+        return null;
+    }
+}
+
+/**
+ * Renders the board settings dialog UI, including the board title and member list.
+ */
+function renderBoardSettingsDialog(){
+    document.getElementById("board_settings_title").innerText = currentSettingsBoard.title;
+    renderBoardSettingsMemberList()
+}
+
+/**
+ * Renders the member list in the board settings dialog.
+ * Marks the board owner and provides remove buttons for other members.
+ */
+function renderBoardSettingsMemberList(){
+    let htmltext = "";
+    currentSettingsBoard.members.forEach(member => {
+        if(member.id == currentSettingsBoard.owner_id){
+            htmltext += `&lt;li>${member.email} &lt;p>(owner)&lt;/p>&lt;/li>`
+        } else {
+            htmltext +=  `&lt;li>${member.email}&lt;button onclick="removeBoardSettingsMember(${member.id})" class="std_btn btn_prime ">Remove&lt;/button>&lt;/li>`
+        }
+    });
+    document.getElementById("board_settings_member_list").innerHTML = htmltext;
+}
+
+/**
+ * Removes a member from the currentSettingsBoard's members by ID,
+ * updates the backend with the new member list, and re-renders the member list.
+ * @param {string|number} id - The ID of the member to remove.
+ * @returns {Promise&lt;void>}
+ */
+async function removeBoardSettingsMember(id){
+    currentSettingsBoard.members = currentSettingsBoard.members.filter(member => member.id !== id);
+    await patchBoardSettingsMembers()
+    renderBoardSettingsMemberList();
+}
+
+/**
+ * Initiates the process to invite a new member to the board settings.
+ * Validates the entered email and proceeds to check the email address if valid.
+ */
+function boardSettingsInviteMember(){
+    let element = document.getElementById("board_settings_email_input")
+    let valid = validateMemberEmail(element, currentSettingsBoard.members)
+    if(valid){
+        boardSettingsCheckMailAddress(element)
+    }
+}
+
+/**
+ * Checks if the given email address exists and, if valid,
+ * adds the corresponding member to the currentSettingsBoard members list,
+ * updates the UI, and patches the backend.
+ * Shows an error message if the email is invalid.
+ * @param {HTMLInputElement} element - The email input element.
+ * @returns {Promise&lt;void>}
+ */
+async function boardSettingsCheckMailAddress(element){
+    let mail = element.value.trim()
+    let resp = await checkMailAddress(mail)
+    if(resp){
+        currentSettingsBoard.members.push(resp)
+        renderBoardSettingsMemberList()
+        document.getElementById("board_settings_email_input").value = "";
+        await patchBoardSettingsMembers()
+    } else {
+        document.getElementById("email_error_label").innerText = "This email adress doesn't exist."
+        setError(true, element.id + "_group")
+    }
+}
+
+/**
+ * Updates the current board's members on the backend by sending their IDs.
+ */
+function patchBoardSettingsMembers(){
+    let boardMemberIds = currentSettingsBoard.members.map(member => member.id)
+    updateBoard({"members": boardMemberIds})
+}
+
+/**
+ * Toggles the edit mode for the board title in the settings dialog.
+ * When entering edit mode, sets the input value to the current title and focuses it.
+ */
+function toggleBoardTitleEdit(){
+    let titleElement = document.getElementById("board_settings_title_group");
+    let isEditing = titleElement.getAttribute("edit") === "true";
+    titleElement.setAttribute("edit", !isEditing);
+    if(!isEditing) {
+        let inputElement = document.getElementById("board_settings_title_input");
+        inputElement.value = currentSettingsBoard.title;
+        inputElement.focus();
+    }
+}
+
+/**
+ * Sets a new board title after validating the input.
+ * Updates the backend and UI if successful, and toggles edit mode off.
+ * @returns {Promise&lt;boolean>} True if the title was updated successfully, false otherwise.
+ */
+async function setNewBoardTitle(){
+    let inputElement = document.getElementById("board_settings_title_input");
+    let title = inputElement.value.trim();
+    if (validateBoardTitle(inputElement)) {
+        
+        let resp = await updateBoard({"title": title});
+        if(resp.ok){
+            currentSettingsBoard.title = title;
+            let titleElement = document.getElementById("board_settings_title");
+            titleElement.innerText = title;
+            toggleBoardTitleEdit();
+        }
+        return true
+    }
+    return false
+}
+
+/**
+ * Opens a confirmation toast message for deleting the current board,
+ * displaying the board title and providing delete and cancel options.
+ */
+function openBoardDeleteToast(){
+    let htmltext = `
+            &lt;article class="font_ d_flex_cc_gl">
+                &lt;div class=" d_flex_ss_gm f_d_c">
+                    &lt;h3>Delete Board&lt;/h3>
+                    &lt;p>Are you sure you want to delete the board ${currentSettingsBoard.title}?&lt;/p>
+                &lt;/div>
+                &lt;div class="font_sec_color d_flex_cc_gm f_d_c">
+                    &lt;button onclick="deleteBoard()" class="std_btn btn_prime d_flex_sc_gs">
+                        &lt;img src="../../assets/icons/delete_dark.svg" alt="">
+                        &lt;p>Delete Board&lt;/p>
+                    &lt;/button>
+                    &lt;button onclick="deleteLastingToast()" class="font_prime_color std_btn toast_cancel d_flex_sc_gs">
+                        &lt;p class="w_full">Cancel&lt;/p>
+                    &lt;/button>
+                &lt;/div>
+            &lt;/article>`
+    showToastLastingMessage(true, htmltext)
+}</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Global</h3><ul><li><a href="global.html#API_BASE_URL">API_BASE_URL</a></li><li><a href="global.html#BOARDS_URL">BOARDS_URL</a></li><li><a href="global.html#DEFAULT_END">DEFAULT_END</a></li><li><a href="global.html#DEFAULT_LOCATION">DEFAULT_LOCATION</a></li><li><a href="global.html#DEFAULT_START">DEFAULT_START</a></li><li><a href="global.html#GFX_MANUAL_URL">GFX_MANUAL_URL</a></li><li><a href="global.html#GUEST_LOGIN">GUEST_LOGIN</a></li><li><a href="global.html#IMG_PATH">IMG_PATH</a></li><li><a href="global.html#LOGIN_URL">LOGIN_URL</a></li><li><a href="global.html#MAIL_CHECK_URL">MAIL_CHECK_URL</a></li><li><a href="global.html#REGISTER_URL">REGISTER_URL</a></li><li><a href="global.html#STORE_KEY">STORE_KEY</a></li><li><a href="global.html#TASKS_ASSIGNED_URL">TASKS_ASSIGNED_URL</a></li><li><a href="global.html#TASKS_REVIEWER_URL">TASKS_REVIEWER_URL</a></li><li><a href="global.html#TASKS_URL">TASKS_URL</a></li><li><a href="global.html#THRESHOLD">THRESHOLD</a></li><li><a href="global.html#boardCreateCheckMailAddress">boardCreateCheckMailAddress</a></li><li><a href="global.html#boardCreateInviteMember">boardCreateInviteMember</a></li><li><a href="global.html#boardCreateSubmit">boardCreateSubmit</a></li><li><a href="global.html#boardList">boardList</a></li><li><a href="global.html#boardSettingsCheckMailAddress">boardSettingsCheckMailAddress</a></li><li><a href="global.html#boardSettingsInviteMember">boardSettingsInviteMember</a></li><li><a href="global.html#buildTaskPdfHtml">buildTaskPdfHtml</a></li><li><a href="global.html#cancelCreateBoard">cancelCreateBoard</a></li><li><a href="global.html#checkMailAddress">checkMailAddress</a></li><li><a href="global.html#closeAllDropdowns">closeAllDropdowns</a></li><li><a href="global.html#closeDialog">closeDialog</a></li><li><a href="global.html#closeOpenId">closeOpenId</a></li><li><a href="global.html#closeOtherMenuBtns">closeOtherMenuBtns</a></li><li><a href="global.html#createBoard">createBoard</a></li><li><a href="global.html#createHeaders">createHeaders</a></li><li><a href="global.html#currenTaskFilter">currenTaskFilter</a></li><li><a href="global.html#currentAssignedTickets">currentAssignedTickets</a></li><li><a href="global.html#currentBoards">currentBoards</a></li><li><a href="global.html#currentCreateBoard">currentCreateBoard</a></li><li><a href="global.html#currentReviewerTickets">currentReviewerTickets</a></li><li><a href="global.html#currentSettingsBoard">currentSettingsBoard</a></li><li><a href="global.html#deleteBoard">deleteBoard</a></li><li><a href="global.html#deleteData">deleteData</a></li><li><a href="global.html#deleteLastingToast">deleteLastingToast</a></li><li><a href="global.html#downloadDebriefingPdf">downloadDebriefingPdf</a></li><li><a href="global.html#drawPieChart">drawPieChart</a></li><li><a href="global.html#drawWaveChart">drawWaveChart</a></li><li><a href="global.html#escapeHtml">escapeHtml</a></li><li><a href="global.html#exportTaskPdfFromCard">exportTaskPdfFromCard</a></li><li><a href="global.html#extractErrorMessages">extractErrorMessages</a></li><li><a href="global.html#formatDate">formatDate</a></li><li><a href="global.html#formatDateNice">formatDateNice</a></li><li><a href="global.html#getAndRenderBoardList">getAndRenderBoardList</a></li><li><a href="global.html#getAndRenderRequestList">getAndRenderRequestList</a></li><li><a href="global.html#getAssignedTasks">getAssignedTasks</a></li><li><a href="global.html#getAuthEmail">getAuthEmail</a></li><li><a href="global.html#getAuthFullname">getAuthFullname</a></li><li><a href="global.html#getAuthToken">getAuthToken</a></li><li><a href="global.html#getAuthUser">getAuthUser</a></li><li><a href="global.html#getAuthUserId">getAuthUserId</a></li><li><a href="global.html#getBoardById">getBoardById</a></li><li><a href="global.html#getBoardCardMoveBtnTemplate">getBoardCardMoveBtnTemplate</a></li><li><a href="global.html#getBoardCardTemplate">getBoardCardTemplate</a></li><li><a href="global.html#getBoardlistEntrieTemplate">getBoardlistEntrieTemplate</a></li><li><a href="global.html#getBoards">getBoards</a></li><li><a href="global.html#getData">getData</a></li><li><a href="global.html#getDetailTaskPersonTemplate">getDetailTaskPersonTemplate</a></li><li><a href="global.html#getErrorMessage">getErrorMessage</a></li><li><a href="global.html#getFormData">getFormData</a></li><li><a href="global.html#getHeaderTemplate">getHeaderTemplate</a></li><li><a href="global.html#getInitials">getInitials</a></li><li><a href="global.html#getLogedInHeaderTemplate">getLogedInHeaderTemplate</a></li><li><a href="global.html#getMemberListTemplate">getMemberListTemplate</a></li><li><a href="global.html#getNearestDueDateTask">getNearestDueDateTask</a></li><li><a href="global.html#getParamFromUrl">getParamFromUrl</a></li><li><a href="global.html#getPdfCss">getPdfCss</a></li><li><a href="global.html#getPieChartData">getPieChartData</a></li><li><a href="global.html#getRequestListEntryTemplate">getRequestListEntryTemplate</a></li><li><a href="global.html#getReviewerTasks">getReviewerTasks</a></li><li><a href="global.html#getSingleCommmentTemplate">getSingleCommmentTemplate</a></li><li><a href="global.html#getSingleTaskTemplate">getSingleTaskTemplate</a></li><li><a href="global.html#getTaskCreateMemberListEntrieTemplate">getTaskCreateMemberListEntrieTemplate</a></li><li><a href="global.html#getTaskListTemplate">getTaskListTemplate</a></li><li><a href="global.html#getToastHTML">getToastHTML</a></li><li><a href="global.html#globalToast">globalToast</a></li><li><a href="global.html#guestLogin">guestLogin</a></li><li><a href="global.html#hydrateFromStorage">hydrateFromStorage</a></li><li><a href="global.html#init">init</a></li><li><a href="global.html#initPortfolioMarquee">initPortfolioMarquee</a></li><li><a href="global.html#isLoadingTasks">isLoadingTasks</a></li><li><a href="global.html#isSflDebriefBoard">isSflDebriefBoard</a></li><li><a href="global.html#loadHtml2Pdf">loadHtml2Pdf</a></li><li><a href="global.html#logIn">logIn</a></li><li><a href="global.html#logInSubmit">logInSubmit</a></li><li><a href="global.html#logOut">logOut</a></li><li><a href="global.html#openBoardCreateDialog">openBoardCreateDialog</a></li><li><a href="global.html#openBoardDeleteToast">openBoardDeleteToast</a></li><li><a href="global.html#openBoardSettingsDialog">openBoardSettingsDialog</a></li><li><a href="global.html#patchBoardSettingsMembers">patchBoardSettingsMembers</a></li><li><a href="global.html#patchData">patchData</a></li><li><a href="global.html#persistStatus">persistStatus</a></li><li><a href="global.html#postData">postData</a></li><li><a href="global.html#prevDef">prevDef</a></li><li><a href="global.html#readCssVars">readCssVars</a></li><li><a href="global.html#redirectToBoard">redirectToBoard</a></li><li><a href="global.html#redirectToBoardWTask">redirectToBoardWTask</a></li><li><a href="global.html#redirectToBoards">redirectToBoards</a></li><li><a href="global.html#redirectToDashboard">redirectToDashboard</a></li><li><a href="global.html#registration">registration</a></li><li><a href="global.html#removeAuthCredentials">removeAuthCredentials</a></li><li><a href="global.html#removeBoardSettingsMember">removeBoardSettingsMember</a></li><li><a href="global.html#removeCurrentMember">removeCurrentMember</a></li><li><a href="global.html#renderBoardList">renderBoardList</a></li><li><a href="global.html#renderBoardSettingsDialog">renderBoardSettingsDialog</a></li><li><a href="global.html#renderBoardSettingsMemberList">renderBoardSettingsMemberList</a></li><li><a href="global.html#renderCreateDialogMemberList">renderCreateDialogMemberList</a></li><li><a href="global.html#renderDashboard">renderDashboard</a></li><li><a href="global.html#renderMemberAndTaskCount">renderMemberAndTaskCount</a></li><li><a href="global.html#renderRequestList">renderRequestList</a></li><li><a href="global.html#renderStatusBtn">renderStatusBtn</a></li><li><a href="global.html#renderStatusTable">renderStatusTable</a></li><li><a href="global.html#renderTaskList">renderTaskList</a></li><li><a href="global.html#renderUrgentTask">renderUrgentTask</a></li><li><a href="global.html#renderWelcomeMessage">renderWelcomeMessage</a></li><li><a href="global.html#requestList">requestList</a></li><li><a href="global.html#resetCurrentDialogs">resetCurrentDialogs</a></li><li><a href="global.html#resetMailError">resetMailError</a></li><li><a href="global.html#safePreview">safePreview</a></li><li><a href="global.html#sampleRequests">sampleRequests</a></li><li><a href="global.html#sanitizeFilename">sanitizeFilename</a></li><li><a href="global.html#setAuthCredentials">setAuthCredentials</a></li><li><a href="global.html#setDashboardData">setDashboardData</a></li><li><a href="global.html#setError">setError</a></li><li><a href="global.html#setHeader">setHeader</a></li><li><a href="global.html#setHeaderTemplate">setHeaderTemplate</a></li><li><a href="global.html#setNewBoardTitle">setNewBoardTitle</a></li><li><a href="global.html#setStatus">setStatus</a></li><li><a href="global.html#showToastMessage">showToastMessage</a></li><li><a href="global.html#signUpSubmit">signUpSubmit</a></li><li><a href="global.html#signUpValues">signUpValues</a></li><li><a href="global.html#stopProp">stopProp</a></li><li><a href="global.html#timeDifference">timeDifference</a></li><li><a href="global.html#toggleBoardTitleEdit">toggleBoardTitleEdit</a></li><li><a href="global.html#toggleDropdown">toggleDropdown</a></li><li><a href="global.html#toggleOpen">toggleOpen</a></li><li><a href="global.html#toggleOpenId">toggleOpenId</a></li><li><a href="global.html#togglePassword">togglePassword</a></li><li><a href="global.html#toggleSwitch">toggleSwitch</a></li><li><a href="global.html#toggleTicketsTypeSwitch">toggleTicketsTypeSwitch</a></li><li><a href="global.html#updateBoard">updateBoard</a></li><li><a href="global.html#validateBoardTitle">validateBoardTitle</a></li><li><a href="global.html#validateConfirmPW">validateConfirmPW</a></li><li><a href="global.html#validateEmail">validateEmail</a></li><li><a href="global.html#validateFullname">validateFullname</a></li><li><a href="global.html#validateLoginPW">validateLoginPW</a></li><li><a href="global.html#validateMemberEmail">validateMemberEmail</a></li><li><a href="global.html#validatePW">validatePW</a></li><li><a href="global.html#validatePrivacyCheckbox">validatePrivacyCheckbox</a></li><li><a href="global.html#validateRegistrationEmail">validateRegistrationEmail</a></li><li><a href="global.html#validateSignUp">validateSignUp</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.4</a> on Fri Aug 15 2025 17:41:07 GMT+0200 (Mitteleuropäische Sommerzeit)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
