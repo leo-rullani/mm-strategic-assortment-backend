@@ -80,26 +80,24 @@ function cleanCurrentTask() {
  * @returns {Promise<void>}
  */
 async function init() {
-  // Erst alles verstecken → kein Flash
-  prehideGraphicsOnlyButtons();
+    prehideGraphicsOnlyButtons();
 
-  await setBoard();
-  window.currentBoard = currentBoard;
-  cleanCurrentTask();
-  renderAllTasks();
-  renderMemberList();
-  renderTitle();
+    await setBoard();
+    window.currentBoard = currentBoard;
+    cleanCurrentTask();
+    renderAllTasks();
+    renderMemberList();
+    renderTitle();
+    renderBoardSummary();
 
-  const hdrBtn = document.getElementById('pdf-download-btn');
-  if (hdrBtn) hdrBtn.style.display = 'none';
+    updateGfxManualButton();
+    updateKitsButton();
+    updateRosterButton();
 
-  // Buttons für Graphics‑Boards toggeln
-  updateGfxManualButton();
-  updateKitsButton();
-  updateRosterButton(); // ← NEU
+    await bookletInitArchive();
 
-  const tid = getParamFromUrl('task_id');
-  if (tid) openTaskDetailDialog(tid);
+    const tid = getParamFromUrl('task_id');
+    if (tid) openTaskDetailDialog(tid);
 }
 
 /**
@@ -109,8 +107,9 @@ async function init() {
  * to the current board's title.
  */
 function renderTitle() {
-    document.getElementById('board_title_link').innerText = currentBoard.title
-    document.getElementById('board_title').innerText = currentBoard.title
+    const title = currentBoard?.title || 'Board'
+    document.getElementById('board_title_link').innerText = title
+    document.getElementById('board_title').innerText = title
 }
 
 /**
@@ -184,7 +183,6 @@ function renderDetailTask() {
     renderDetailTaskDueDate()
     renderDetailTaskPriority()
     renderDetailTaskComments()
-    bindPdfButtonsForSfl();
 }
 
 /**
@@ -516,7 +514,7 @@ function updateRosterButton() {
  */
 function prehideGraphicsOnlyButtons() {
     // Header IDs
-    ['gfx-manual-btn', 'gfx-kits-btn'].forEach((id) => {
+    ['gfx-manual-btn', 'gfx-kits-btn', 'gfx-roster-btn'].forEach((id) => {
         const el = document.getElementById(id);
         if (el) {
             el.hidden = true;           // semantisch
@@ -525,7 +523,7 @@ function prehideGraphicsOnlyButtons() {
     });
 
     // Evtl. bereits injizierte Kits-Buttons mitsteuern
-    document.querySelectorAll('.gfx-kits-btn').forEach((el) => {
+    document.querySelectorAll('.gfx-kits-btn, .gfx-roster-btn').forEach((el) => {
         el.hidden = true;
         el.style.display = 'none';
     });
@@ -585,18 +583,6 @@ function deleteCurrentTask() {
     deleteTask(currentTask.id)
 }
 
-function deleteComment(id) {
-    deleteData(TASKS_URL + currentTask.id + "/comments/" + id + "/").then(async response => {
-        if (!response.ok) {
-            let errorArr = extractErrorMessages(response.data)
-            showToastMessage(true, errorArr)
-        } else {
-            currentComments = await getTaskComments(currentTask.id);
-            renderDetailTaskComments()
-        }
-    })
-}
-
 /**
  * Deletes a comment by its ID for the current task.
  *
@@ -643,99 +629,6 @@ function fillEditCreateTaskDialog(type) {
         }, true);
         desc.dataset.listenerSet = 'true';
     }
-    bindPdfButtonsForSfl();
-}
-
-    const pdfBtn = document.getElementById('task-pdf-btn');
-    const title = (currentBoard?.title || '').toLowerCase();
-    const isSflDebrief = title.includes('debriefing') && (title.includes('swiss football league') || title.includes('sfl'));
-
-    if (pdfBtn) {
-        if (isSflDebrief) {
-            pdfBtn.style.display = 'inline-flex';
-            window.exportDebriefingTaskPdf = async () => {
-                const descEl = document.getElementById('create_edit_task_description');
-                freezeFormValues(descEl); 
-                const html = descEl.innerHTML;
-                const base = document.getElementById('create_edit_task_title_input').value || 'debriefing';
-                const mod = await import('./pdf_export.js'); 
-                mod.exportDebriefingTaskPdf(html, base);
-            };
-        } else {
-            pdfBtn.style.display = 'none';
-        }
-    }
-
-/**
- * Checks whether the current board title matches the pattern
- * for an SFL (Swiss Football League) Debriefing board.
- *
- * The detection is case-insensitive and returns true if:
- * - The title contains "debriefing", AND
- * - The title contains either "swiss football league" or "sfl".
- *
- * @returns {boolean} True if the board title matches the SFL Debriefing pattern, otherwise false.
- */
-function isSflDebriefBoardTitle() {
-    const t = (currentBoard?.title || '').toLowerCase();
-    return t.includes('debriefing') &&
-           (t.includes('swiss football league') || t.includes('sfl'));
-}
-
-/**
- * Exports the current Debriefing task as a PDF.
- *
- * Determines whether the edit dialog is open or the detail view is active,
- * selects the appropriate description container, and (if in edit mode)
- * freezes form values into the DOM so they are included in the export HTML.
- * Then calls the `exportDebriefingTaskPdf` function from `pdf_export.js`.
- *
- * @async
- * @returns {Promise<void>} Resolves once the export process has been triggered.
- */
-async function exportDebriefingTaskPdf() {
-    const editOpen = document
-        .getElementById('create_edit_task_dialog')
-        ?.getAttribute('current_dialog') === 'true';
-
-    const rootId = editOpen
-        ? 'create_edit_task_description'
-        : 'detail_task_description';
-
-    const el = document.getElementById(rootId);
-    if (!el) return;
-
-    if (editOpen) freezeFormValues(el);
-
-    const html = el.innerHTML;
-    const baseTitle =
-        document.getElementById('create_edit_task_title_input')?.value ||
-        currentTask?.title ||
-        'debriefing';
-
-    const mod = await import('./pdf_export.js');
-    mod.exportDebriefingTaskPdf(html, baseTitle);
-}
-
-/**
- * Binds the PDF export buttons for SFL Debriefing boards.
- *
- * - Checks if the current board is an SFL Debriefing board (via {@link isSflDebriefBoardTitle}).
- * - Shows or hides the edit and detail PDF buttons accordingly.
- * - Assigns the {@link exportDebriefingTaskPdf} function to the click handler of each button.
- *
- * @returns {void}
- */
-function bindPdfButtonsForSfl() {
-    const isSfl = isSflDebriefBoardTitle();
-    const editBtn   = document.getElementById('task-pdf-btn');
-    const detailBtn = document.getElementById('detail-pdf-btn');
-
-    [editBtn, detailBtn].forEach(btn => {
-        if (!btn) return;
-        btn.style.display = isSfl ? 'inline-flex' : 'none';
-        btn.onclick = exportDebriefingTaskPdf;
-    });
 }
 
 /**
@@ -1115,7 +1008,28 @@ async function deleteTask(id) {
  */
 async function loadAndRenderTasks() {
     await setBoard()
+    window.currentBoard = currentBoard
     renderAllTasks()
+    renderBoardSummary()
+}
+
+/**
+ * Updates the compact board metrics displayed in the page hero.
+ */
+function renderBoardSummary() {
+    const tasks = currentBoard?.tasks || []
+    const members = currentBoard?.members || []
+    const done = tasks.filter(task => task.status === 'done').length
+    const values = {
+        board_task_count: tasks.length,
+        board_done_count: done,
+        board_member_count: members.length
+    }
+
+    Object.entries(values).forEach(([id, value]) => {
+        const element = document.getElementById(id)
+        if (element) element.innerText = value
+    })
 }
 
 /**
@@ -1127,10 +1041,10 @@ async function loadAndRenderTasks() {
 function renderAllTasks() {
     let searchRef = document.getElementById('searchbar_tasks')
     let taskList = []
-    if (searchRef.value.length > 0) {
+    if (searchRef?.value.length > 0) {
         taskList = searchInTasks(searchRef.value)
     } else {
-        taskList = currentBoard.tasks
+        taskList = currentBoard.tasks || []
     }
     let statii = ['to-do', 'in-progress', 'review', 'done']
     statii.forEach(status => {
@@ -1148,10 +1062,12 @@ function renderAllTasks() {
  * @param {Array<Object>} filteredList - The list of task objects to display in the column.
  */
 function renderSingleColumn(status, filteredList) {
-    document.getElementById(`${status}_column`).innerHTML = ""
-    filteredList.forEach(task => {
-        document.getElementById(`${status}_column`).innerHTML += getBoardCardTemplate(task)
-    })
+    const column = document.getElementById(`${status}_column`)
+    if (!column) return
+
+    column.innerHTML = filteredList.length
+        ? filteredList.map(task => getBoardCardTemplate(task)).join('')
+        : `<li class="board-column-empty">No tasks in this stage.</li>`
 }
 
 /**
@@ -1165,7 +1081,7 @@ function renderSingleColumn(status, filteredList) {
 function searchInTasks(searchTerm) {
     const lowerCaseSearch = searchTerm.toLowerCase()
 
-    return currentBoard.tasks.filter(task => {
+    return (currentBoard.tasks || []).filter(task => {
         const titleMatch = task.title?.toLowerCase().includes(lowerCaseSearch)
         const descriptionMatch = task.description?.toLowerCase().includes(lowerCaseSearch)
         return titleMatch || descriptionMatch
@@ -1188,6 +1104,7 @@ async function updateBoard(data) {
   } else {
     currentBoard.title = response.data.title;
     renderTitle();
+    renderBoardSummary();
     updateGfxManualButton();
     updateKitsButton();
     updateRosterButton(); // ← NEU
@@ -1291,6 +1208,853 @@ function freezeFormValues(root) {
     });
 }
 
+/* ========================================================================== */
+/*  Strategic Assortment booklet archive (frontend-only / IndexedDB)          */
+/* ========================================================================== */
+
+const bookletDbName = 'mm-strategic-assortment-booklets';
+const bookletDbVersion = 1;
+const bookletStoreName = 'booklets';
+const bookletMaxFileSize = 10 * 1024 * 1024;
+
+let bookletDbPromise = null;
+let bookletSelectedFile = null;
+let bookletRecords = [];
+let bookletStorageReady = false;
+
+/**
+ * Initializes the local booklet archive after the current board was loaded.
+ * Safe to call more than once.
+ *
+ * Expected DOM IDs:
+ *  - booklet_period (required, input[type="month"])
+ *  - booklet_file_input (required, input[type="file"])
+ *  - booklet_dropzone (required)
+ *  - booklet_upload_button (required)
+ *  - booklet_selected_file (optional)
+ *  - booklet_status (optional)
+ *  - booklet_archive_list (required)
+ *  - booklet_archive_filter (optional, input[type="month"])
+ *  - booklet_archive_count (optional)
+ *  - booklet_choose_file_button (optional)
+ *  - booklet_filter_clear_button (optional)
+ *
+ * @returns {Promise<void>}
+ */
+async function bookletInitArchive() {
+    const periodInput = document.getElementById('booklet_period');
+    const fileInput = document.getElementById('booklet_file_input');
+    const dropzone = document.getElementById('booklet_dropzone');
+    const uploadButton = document.getElementById('booklet_upload_button');
+    const archiveList = document.getElementById('booklet_archive_list');
+
+    if (!periodInput || !fileInput || !dropzone || !uploadButton || !archiveList) {
+        console.warn('[Booklets] Archive markup is incomplete.');
+        return;
+    }
+
+    bookletConfigureStatusRegion();
+    bookletBindArchiveEvents();
+    bookletUpdateUploadState();
+
+    const boardId = bookletGetBoardId();
+    if (!boardId) {
+        bookletSetStatus('The board must be loaded before the booklet archive can start.', 'error');
+        return;
+    }
+
+    if (!('indexedDB' in window)) {
+        bookletSetStatus('This browser does not support local booklet storage.', 'error');
+        return;
+    }
+
+    try {
+        await bookletOpenDatabase();
+        bookletStorageReady = true;
+        await bookletLoadArchive();
+        bookletSetStatus('Local booklet archive ready.', 'info');
+    } catch (error) {
+        bookletStorageReady = false;
+        console.error('[Booklets] IndexedDB could not be initialized:', error);
+        bookletSetStatus('The local booklet archive could not be opened.', 'error');
+    }
+
+    bookletUpdateUploadState();
+}
+
+/**
+ * Adds all UI listeners exactly once.
+ *
+ * @returns {void}
+ */
+function bookletBindArchiveEvents() {
+    const periodInput = document.getElementById('booklet_period');
+    const fileInput = document.getElementById('booklet_file_input');
+    const dropzone = document.getElementById('booklet_dropzone');
+    const chooseButton = document.getElementById('booklet_choose_file_button');
+    const uploadButton = document.getElementById('booklet_upload_button');
+    const archiveList = document.getElementById('booklet_archive_list');
+    const filterInput = document.getElementById('booklet_archive_filter');
+    const clearFilterButton = document.getElementById('booklet_filter_clear_button');
+    const resetButton = document.getElementById('booklet_reset_btn');
+
+    if (periodInput && !periodInput.dataset.bookletBound) {
+        periodInput.addEventListener('change', () => {
+            bookletSelectedFile = null;
+            if (fileInput) fileInput.value = '';
+            bookletRenderSelectedFile();
+            bookletUpdateUploadState();
+            bookletSetStatus(
+                bookletIsValidPeriod(periodInput.value)
+                    ? `Period selected: ${bookletFormatPeriod(periodInput.value)}.`
+                    : 'Select a month before choosing a booklet.',
+                'info'
+            );
+        });
+        periodInput.dataset.bookletBound = 'true';
+    }
+
+    if (fileInput && !fileInput.dataset.bookletBound) {
+        fileInput.setAttribute('accept', '.html,.htm,text/html');
+        fileInput.addEventListener('change', () => bookletHandleFiles(fileInput.files));
+        fileInput.dataset.bookletBound = 'true';
+    }
+
+    if (dropzone && !dropzone.dataset.bookletBound) {
+        dropzone.addEventListener('click', event => {
+            if (event.target.closest('button, a, input, label')) return;
+            bookletOpenFilePicker();
+        });
+
+        dropzone.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                bookletOpenFilePicker();
+            }
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropzone.addEventListener(eventName, event => {
+                event.preventDefault();
+                event.stopPropagation();
+                dropzone.classList.add('is-dragover');
+            });
+        });
+
+        ['dragleave', 'dragend'].forEach(eventName => {
+            dropzone.addEventListener(eventName, event => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (eventName === 'dragend' || !dropzone.contains(event.relatedTarget)) {
+                    dropzone.classList.remove('is-dragover');
+                }
+            });
+        });
+
+        dropzone.addEventListener('drop', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            dropzone.classList.remove('is-dragover');
+            bookletHandleFiles(event.dataTransfer?.files || []);
+        });
+
+        dropzone.dataset.bookletBound = 'true';
+    }
+
+    if (chooseButton && !chooseButton.dataset.bookletBound) {
+        chooseButton.addEventListener('click', event => {
+            event.preventDefault();
+            event.stopPropagation();
+            bookletOpenFilePicker();
+        });
+        chooseButton.dataset.bookletBound = 'true';
+    }
+
+    if (uploadButton && !uploadButton.dataset.bookletBound) {
+        uploadButton.addEventListener('click', bookletSaveSelectedFile);
+        uploadButton.dataset.bookletBound = 'true';
+    }
+
+    if (filterInput && !filterInput.dataset.bookletBound) {
+        filterInput.addEventListener('change', bookletRenderArchive);
+        filterInput.dataset.bookletBound = 'true';
+    }
+
+    if (clearFilterButton && !clearFilterButton.dataset.bookletBound) {
+        clearFilterButton.addEventListener('click', event => {
+            event.preventDefault();
+            if (filterInput) filterInput.value = '';
+            bookletRenderArchive();
+        });
+        clearFilterButton.dataset.bookletBound = 'true';
+    }
+
+    if (resetButton && !resetButton.dataset.bookletBound) {
+        resetButton.addEventListener('click', bookletResetSelection);
+        resetButton.dataset.bookletBound = 'true';
+    }
+
+    if (archiveList && !archiveList.dataset.bookletBound) {
+        archiveList.addEventListener('click', bookletHandleArchiveAction);
+        archiveList.dataset.bookletBound = 'true';
+    }
+}
+
+/**
+ * Expands or collapses the Strategic Assortment booklet workspace.
+ */
+function toggleBookletHub(forceOpen) {
+    const hub = document.getElementById('booklet_hub');
+    const button = document.getElementById('booklet-toggle-btn');
+    if (!hub) return;
+
+    const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : hub.hidden;
+    hub.hidden = !shouldOpen;
+    button?.setAttribute('aria-expanded', String(shouldOpen));
+    button?.classList.toggle('is-active', shouldOpen);
+
+    if (shouldOpen) {
+        window.requestAnimationFrame(() => {
+            hub.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }
+}
+
+/**
+ * Clears the pending month/file selection without deleting archived editions.
+ */
+function bookletResetSelection() {
+    const periodInput = document.getElementById('booklet_period');
+    const fileInput = document.getElementById('booklet_file_input');
+    bookletSelectedFile = null;
+    if (periodInput) periodInput.value = '';
+    if (fileInput) fileInput.value = '';
+    bookletRenderSelectedFile();
+    bookletUpdateUploadState();
+    bookletSetStatus('Selection reset. Choose an edition month to continue.', 'info');
+}
+
+/**
+ * Ensures the status element works for screen readers even if the attributes
+ * were omitted from the HTML.
+ *
+ * @returns {void}
+ */
+function bookletConfigureStatusRegion() {
+    const status = document.getElementById('booklet_status');
+    if (!status) return;
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.setAttribute('aria-atomic', 'true');
+}
+
+/**
+ * Returns the current board ID as a string.
+ *
+ * @returns {string}
+ */
+function bookletGetBoardId() {
+    if (window.currentBoard?.id !== undefined && window.currentBoard?.id !== null) {
+        return String(window.currentBoard.id);
+    }
+    if (typeof currentBoard !== 'undefined' && currentBoard?.id !== undefined && currentBoard?.id !== null) {
+        return String(currentBoard.id);
+    }
+    if (typeof getParamFromUrl === 'function') {
+        const paramId = getParamFromUrl('id');
+        return paramId === undefined || paramId === null ? '' : String(paramId);
+    }
+    return '';
+}
+
+/**
+ * Opens (and if necessary creates) the local IndexedDB database.
+ *
+ * @returns {Promise<IDBDatabase>}
+ */
+function bookletOpenDatabase() {
+    if (bookletDbPromise) return bookletDbPromise;
+
+    bookletDbPromise = new Promise((resolve, reject) => {
+        const request = indexedDB.open(bookletDbName, bookletDbVersion);
+
+        request.onupgradeneeded = () => {
+            const database = request.result;
+            let store;
+
+            if (!database.objectStoreNames.contains(bookletStoreName)) {
+                store = database.createObjectStore(bookletStoreName, { keyPath: 'id' });
+            } else {
+                store = request.transaction.objectStore(bookletStoreName);
+            }
+
+            if (!store.indexNames.contains('boardId')) {
+                store.createIndex('boardId', 'boardId', { unique: false });
+            }
+        };
+
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('IndexedDB could not be opened.'));
+        request.onblocked = () => reject(new Error('IndexedDB upgrade is blocked by another tab.'));
+    }).catch(error => {
+        bookletDbPromise = null;
+        throw error;
+    });
+
+    return bookletDbPromise;
+}
+
+/**
+ * Resolves when an IndexedDB transaction is fully committed.
+ *
+ * @param {IDBTransaction} transaction
+ * @returns {Promise<void>}
+ */
+function bookletTransactionDone(transaction) {
+    return new Promise((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error || new Error('Booklet transaction failed.'));
+        transaction.onabort = () => reject(transaction.error || new Error('Booklet transaction was aborted.'));
+    });
+}
+
+/**
+ * Converts an IndexedDB request into a Promise.
+ *
+ * @param {IDBRequest} request
+ * @returns {Promise<*>}
+ */
+function bookletRequestResult(request) {
+    return new Promise((resolve, reject) => {
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error || new Error('Booklet request failed.'));
+    });
+}
+
+/**
+ * Loads the archive records for the currently opened board.
+ *
+ * @returns {Promise<void>}
+ */
+async function bookletLoadArchive() {
+    const boardId = bookletGetBoardId();
+    if (!boardId) return;
+
+    const database = await bookletOpenDatabase();
+    const transaction = database.transaction(bookletStoreName, 'readonly');
+    const store = transaction.objectStore(bookletStoreName);
+    const request = store.index('boardId').getAll(boardId);
+
+    bookletRecords = await bookletRequestResult(request);
+    bookletSortRecords();
+    bookletRenderArchive();
+}
+
+/**
+ * Sorts newest periods first, with newest replacement first as a tie-breaker.
+ *
+ * @returns {void}
+ */
+function bookletSortRecords() {
+    bookletRecords.sort((first, second) => {
+        const periodOrder = String(second.period || '').localeCompare(String(first.period || ''));
+        if (periodOrder !== 0) return periodOrder;
+        return String(second.updatedAt || second.createdAt || '')
+            .localeCompare(String(first.updatedAt || first.createdAt || ''));
+    });
+}
+
+/**
+ * Opens the file picker only after a valid period was selected.
+ *
+ * @returns {void}
+ */
+function bookletOpenFilePicker() {
+    const periodInput = document.getElementById('booklet_period');
+    const fileInput = document.getElementById('booklet_file_input');
+
+    if (!periodInput || !bookletIsValidPeriod(periodInput.value)) {
+        bookletSetStatus('Select the Strategic Assortment month first.', 'error');
+        periodInput?.focus();
+        return;
+    }
+
+    fileInput?.click();
+}
+
+/**
+ * Validates one dropped/selected HTML file and stores it as the pending upload.
+ *
+ * @param {FileList|File[]} files
+ * @returns {void}
+ */
+function bookletHandleFiles(files) {
+    const periodInput = document.getElementById('booklet_period');
+    const fileInput = document.getElementById('booklet_file_input');
+    const fileArray = Array.from(files || []);
+
+    if (!periodInput || !bookletIsValidPeriod(periodInput.value)) {
+        bookletSelectedFile = null;
+        if (fileInput) fileInput.value = '';
+        bookletRenderSelectedFile();
+        bookletUpdateUploadState();
+        bookletSetStatus('Select the Strategic Assortment month before adding a file.', 'error');
+        periodInput?.focus();
+        return;
+    }
+
+    if (fileArray.length !== 1) {
+        bookletSelectedFile = null;
+        if (fileInput) fileInput.value = '';
+        bookletRenderSelectedFile();
+        bookletUpdateUploadState();
+        bookletSetStatus('Choose exactly one HTML file.', 'error');
+        return;
+    }
+
+    const file = fileArray[0];
+    const lowerName = String(file.name || '').toLowerCase();
+    const hasAllowedExtension = lowerName.endsWith('.html') || lowerName.endsWith('.htm');
+
+    if (!hasAllowedExtension) {
+        bookletSelectedFile = null;
+        if (fileInput) fileInput.value = '';
+        bookletRenderSelectedFile();
+        bookletUpdateUploadState();
+        bookletSetStatus('Only .html or .htm booklets are accepted.', 'error');
+        return;
+    }
+
+    if (file.size <= 0) {
+        bookletSelectedFile = null;
+        if (fileInput) fileInput.value = '';
+        bookletRenderSelectedFile();
+        bookletUpdateUploadState();
+        bookletSetStatus('The selected HTML file is empty.', 'error');
+        return;
+    }
+
+    if (file.size > bookletMaxFileSize) {
+        bookletSelectedFile = null;
+        if (fileInput) fileInput.value = '';
+        bookletRenderSelectedFile();
+        bookletUpdateUploadState();
+        bookletSetStatus('The booklet must not be larger than 10 MB.', 'error');
+        return;
+    }
+
+    bookletSelectedFile = file;
+    bookletRenderSelectedFile();
+    bookletUpdateUploadState();
+    bookletSetStatus(
+        `${file.name} is ready for ${bookletFormatPeriod(periodInput.value)}.`,
+        'success'
+    );
+}
+
+/**
+ * Updates the pending-file summary.
+ *
+ * @returns {void}
+ */
+function bookletRenderSelectedFile() {
+    const output = document.getElementById('booklet_selected_file');
+    const dropzone = document.getElementById('booklet_dropzone');
+    if (!output) return;
+
+    if (!bookletSelectedFile) {
+        output.textContent = 'No HTML file selected';
+        output.removeAttribute('title');
+        output.classList.remove('has-file');
+        dropzone?.classList.remove('has-file');
+        return;
+    }
+
+    output.textContent = `${bookletSelectedFile.name} · ${bookletFormatBytes(bookletSelectedFile.size)}`;
+    output.title = bookletSelectedFile.name;
+    output.classList.add('has-file');
+    dropzone?.classList.add('has-file');
+}
+
+/**
+ * Enables upload only when storage, period and file are ready.
+ *
+ * @returns {void}
+ */
+function bookletUpdateUploadState() {
+    const uploadButton = document.getElementById('booklet_upload_button');
+    const period = document.getElementById('booklet_period')?.value || '';
+    if (!uploadButton) return;
+
+    uploadButton.disabled = !(
+        bookletStorageReady &&
+        bookletSelectedFile &&
+        bookletIsValidPeriod(period)
+    );
+}
+
+/**
+ * Stores the selected file. There is exactly one record per board and month.
+ * An existing record is replaced only after user confirmation.
+ *
+ * @returns {Promise<void>}
+ */
+async function bookletSaveSelectedFile() {
+    const periodInput = document.getElementById('booklet_period');
+    const fileInput = document.getElementById('booklet_file_input');
+    const uploadButton = document.getElementById('booklet_upload_button');
+    const boardId = bookletGetBoardId();
+    const period = periodInput?.value || '';
+
+    if (!bookletStorageReady) {
+        bookletSetStatus('The local booklet archive is not available.', 'error');
+        return;
+    }
+
+    if (!boardId || !bookletIsValidPeriod(period)) {
+        bookletSetStatus('Select a valid month before uploading.', 'error');
+        periodInput?.focus();
+        return;
+    }
+
+    if (!bookletSelectedFile) {
+        bookletSetStatus('Choose one HTML booklet first.', 'error');
+        return;
+    }
+
+    const recordId = bookletCreateRecordId(boardId, period);
+    const existingRecord = bookletRecords.find(record => record.id === recordId);
+
+    if (existingRecord) {
+        const shouldReplace = window.confirm(
+            `A Strategic Assortment booklet for ${bookletFormatPeriod(period)} already exists. Replace it?`
+        );
+        if (!shouldReplace) {
+            bookletSetStatus('Replacement cancelled. The existing booklet was kept.', 'info');
+            return;
+        }
+    }
+
+    uploadButton?.setAttribute('aria-busy', 'true');
+    if (uploadButton) uploadButton.disabled = true;
+    bookletSetStatus('Saving booklet locally…', 'info');
+
+    try {
+        const html = await bookletSelectedFile.text();
+        const now = new Date().toISOString();
+        const record = {
+            id: recordId,
+            boardId,
+            category: 'Strategic Assortment',
+            period,
+            fileName: bookletSelectedFile.name,
+            mimeType: bookletSelectedFile.type || 'text/html',
+            size: bookletSelectedFile.size,
+            createdAt: existingRecord?.createdAt || now,
+            updatedAt: now,
+            html
+        };
+
+        await bookletWriteRecord(record);
+        bookletSelectedFile = null;
+        if (fileInput) fileInput.value = '';
+        bookletRenderSelectedFile();
+        await bookletLoadArchive();
+        bookletSetStatus(
+            `Strategic Assortment ${bookletFormatPeriod(period)} was saved locally.`,
+            'success'
+        );
+    } catch (error) {
+        console.error('[Booklets] File could not be stored:', error);
+        bookletSetStatus('The booklet could not be saved locally.', 'error');
+    } finally {
+        uploadButton?.removeAttribute('aria-busy');
+        bookletUpdateUploadState();
+    }
+}
+
+/**
+ * Writes or replaces a single IndexedDB record.
+ *
+ * @param {Object} record
+ * @returns {Promise<void>}
+ */
+async function bookletWriteRecord(record) {
+    const database = await bookletOpenDatabase();
+    const transaction = database.transaction(bookletStoreName, 'readwrite');
+    const completion = bookletTransactionDone(transaction);
+    transaction.objectStore(bookletStoreName).put(record);
+    await completion;
+}
+
+/**
+ * Deletes a single IndexedDB record.
+ *
+ * @param {string} id
+ * @returns {Promise<void>}
+ */
+async function bookletDeleteRecord(id) {
+    const database = await bookletOpenDatabase();
+    const transaction = database.transaction(bookletStoreName, 'readwrite');
+    const completion = bookletTransactionDone(transaction);
+    transaction.objectStore(bookletStoreName).delete(id);
+    await completion;
+}
+
+/**
+ * Handles archive Open/Delete actions using event delegation.
+ *
+ * @param {MouseEvent} event
+ * @returns {Promise<void>}
+ */
+async function bookletHandleArchiveAction(event) {
+    const button = event.target.closest('[data-booklet-action][data-booklet-id]');
+    if (!button) return;
+
+    event.preventDefault();
+    const id = button.dataset.bookletId || '';
+    const action = button.dataset.bookletAction;
+
+    if (action === 'open') {
+        bookletOpenRecord(id);
+        return;
+    }
+
+    if (action !== 'delete') return;
+
+    const record = bookletRecords.find(item => item.id === id);
+    if (!record) {
+        bookletSetStatus('The selected booklet no longer exists.', 'error');
+        return;
+    }
+
+    const shouldDelete = window.confirm(
+        `Delete Strategic Assortment ${bookletFormatPeriod(record.period)} from this browser?`
+    );
+    if (!shouldDelete) return;
+
+    button.disabled = true;
+    try {
+        await bookletDeleteRecord(id);
+        await bookletLoadArchive();
+        bookletSetStatus(
+            `Strategic Assortment ${bookletFormatPeriod(record.period)} was deleted.`,
+            'success'
+        );
+    } catch (error) {
+        console.error('[Booklets] Record could not be deleted:', error);
+        button.disabled = false;
+        bookletSetStatus('The booklet could not be deleted.', 'error');
+    }
+}
+
+/**
+ * Opens a stored HTML booklet in a separate, opener-isolated tab.
+ *
+ * @param {string} id
+ * @returns {void}
+ */
+function bookletOpenRecord(id) {
+    const record = bookletRecords.find(item => item.id === id);
+    if (!record) {
+        bookletSetStatus('The selected booklet no longer exists.', 'error');
+        return;
+    }
+
+    const blob = new Blob([record.html || ''], { type: 'text/html;charset=utf-8' });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = objectUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    bookletSetStatus(
+        `Opened Strategic Assortment ${bookletFormatPeriod(record.period)} in a new tab.`,
+        'success'
+    );
+}
+
+/**
+ * Renders the archive, optionally filtered by #booklet_archive_filter.
+ *
+ * @returns {void}
+ */
+function bookletRenderArchive() {
+    const archiveList = document.getElementById('booklet_archive_list');
+    const countOutput = document.getElementById('booklet_archive_count');
+    const filterValue = document.getElementById('booklet_archive_filter')?.value || '';
+    if (!archiveList) return;
+
+    const visibleRecords = bookletRecords.filter(record => {
+        return !bookletIsValidPeriod(filterValue) || record.period === filterValue;
+    });
+
+    if (countOutput) {
+        countOutput.textContent = `${visibleRecords.length} edition${visibleRecords.length === 1 ? '' : 's'}`;
+        countOutput.setAttribute(
+            'aria-label',
+            `${visibleRecords.length} booklet${visibleRecords.length === 1 ? '' : 's'}`
+        );
+    }
+
+    if (visibleRecords.length === 0) {
+        archiveList.innerHTML = `
+            <li class="booklet-empty-state">
+                <span class="booklet-empty-icon" aria-hidden="true">SA</span>
+                <div>
+                    <strong>No booklets found</strong>
+                    <p>${bookletIsValidPeriod(filterValue)
+                        ? `No Strategic Assortment booklet is stored for ${bookletEscapeHtml(bookletFormatPeriod(filterValue))}.`
+                        : 'Select a month and add the first Strategic Assortment HTML booklet.'}</p>
+                </div>
+            </li>`;
+        return;
+    }
+
+    archiveList.innerHTML = visibleRecords.map(record => {
+        const safeId = bookletEscapeHtml(record.id);
+        const safePeriod = bookletEscapeHtml(bookletFormatPeriod(record.period));
+        const safeFileName = bookletEscapeHtml(record.fileName || 'strategic-assortment.html');
+        const safeSize = bookletEscapeHtml(bookletFormatBytes(record.size || 0));
+        const safeUpdated = bookletEscapeHtml(bookletFormatDate(record.updatedAt || record.createdAt));
+
+        return `
+            <li class="booklet-archive-item booklet-entry">
+                <div class="booklet-file-mark booklet-record-icon" aria-hidden="true">HTML</div>
+                <div class="booklet-archive-copy booklet-record-copy">
+                    <span class="booklet-type-label">Strategic Assortment</span>
+                    <h3 class="booklet-record-period">${safePeriod}</h3>
+                    <p class="booklet-record-name" title="${safeFileName}">${safeFileName}</p>
+                </div>
+                <div class="booklet-file-meta booklet-record-meta">
+                    <span>${safeSize}</span>
+                    <span>Updated ${safeUpdated}</span>
+                </div>
+                <div class="booklet-archive-actions booklet-record-actions">
+                    <button type="button"
+                            class="std_btn btn_prime booklet-open-button booklet-record-action"
+                            data-booklet-action="open"
+                            data-booklet-id="${safeId}">
+                        Open
+                    </button>
+                    <button type="button"
+                            class="std_btn booklet-delete-button booklet-record-action booklet-record-action--delete"
+                            data-booklet-action="delete"
+                            data-booklet-id="${safeId}"
+                            aria-label="Delete Strategic Assortment ${safePeriod}">
+                        Delete
+                    </button>
+                </div>
+            </li>`;
+    }).join('');
+}
+
+/**
+ * Sets a visible and screen-reader-accessible status message.
+ *
+ * @param {string} message
+ * @param {'info'|'success'|'error'} [state='info']
+ * @returns {void}
+ */
+function bookletSetStatus(message, state = 'info') {
+    const status = document.getElementById('booklet_status');
+    if (!status) return;
+    status.textContent = message;
+    status.dataset.state = state;
+}
+
+/**
+ * Creates the deterministic one-record-per-board-and-period key.
+ *
+ * @param {string} boardId
+ * @param {string} period
+ * @returns {string}
+ */
+function bookletCreateRecordId(boardId, period) {
+    return `${boardId}::${period}`;
+}
+
+/**
+ * Validates YYYY-MM and its month range.
+ *
+ * @param {string} value
+ * @returns {boolean}
+ */
+function bookletIsValidPeriod(value) {
+    const match = /^(\d{4})-(\d{2})$/.exec(String(value || ''));
+    if (!match) return false;
+    const month = Number(match[2]);
+    return month >= 1 && month <= 12;
+}
+
+/**
+ * Formats YYYY-MM for display.
+ *
+ * @param {string} period
+ * @returns {string}
+ */
+function bookletFormatPeriod(period) {
+    if (!bookletIsValidPeriod(period)) return String(period || 'Unknown period');
+    const [year, month] = period.split('-').map(Number);
+    const locale = document.documentElement.lang || 'en-GB';
+    return new Intl.DateTimeFormat(locale, {
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC'
+    }).format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+/**
+ * Formats a byte count into a compact file-size label.
+ *
+ * @param {number} bytes
+ * @returns {string}
+ */
+function bookletFormatBytes(bytes) {
+    const value = Number(bytes) || 0;
+    if (value < 1024) return `${value} B`;
+    if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
+    return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Formats an ISO timestamp for the current document locale.
+ *
+ * @param {string} isoDate
+ * @returns {string}
+ */
+function bookletFormatDate(isoDate) {
+    const date = new Date(isoDate);
+    if (Number.isNaN(date.getTime())) return 'unknown';
+    return new Intl.DateTimeFormat(document.documentElement.lang || 'en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
+    }).format(date);
+}
+
+/**
+ * Escapes untrusted text before it is inserted into HTML or attributes.
+ *
+ * @param {*} value
+ * @returns {string}
+ */
+function bookletEscapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, character => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    })[character]);
+}
+
 /* ───────── Our‑Portfolio Marquee ───────── */
 /**
  * Initializes the marquee for the `.portfolio-track` list.
@@ -1321,7 +2085,7 @@ function initPortfolioMarquee() {
                        2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zM10 4h4v2h-4V4zm10 
                        14H4V8h16v10z"/>
             </svg>
-            OUR PORTFOLIO
+            OUR PORTFOLIO
         </span>`;
 
     originalItems.forEach((txt, idx) => {

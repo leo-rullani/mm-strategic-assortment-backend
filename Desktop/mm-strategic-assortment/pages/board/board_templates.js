@@ -6,9 +6,9 @@
  *  - Member profile circles (limited to 4 with "+X" overflow indicator)
  *  - Task detail person blocks (assignee/reviewer)
  *  - Single comment entries with optional delete button
- *  - Kanban task cards, including optional SFL Debriefing PDF export button
+ *  - Kanban task cards
  *  - Move button group for changing task status
- * Includes a few helpers for SFL board detection, safe HTML preview extraction, and PDF export.
+ * Includes a helper for safe HTML preview extraction.
  *
  * @author
  *   Leugzim Rullani
@@ -172,8 +172,7 @@ function getTaskCreateMemberListEntrieTemplate(type, currentBoard) {
  * Generates the HTML template for a task card on the Kanban board column.
  *
  * Shows the task's title, priority icon, assignee (profile circle or default icon),
- * a short preview of the description (HTML stripped), an optional PDF button
- * (only for SFL Debriefing boards), and the move button group.
+ * a short preview of the description (HTML stripped), and the move button group.
  * Clicking the card opens the task detail dialog.
  *
  * @param {Task} task - The task to render.
@@ -187,20 +186,11 @@ function getBoardCardTemplate(task) {
         ? `<div class="profile_circle color_${getInitials(task.assignee.fullname)[0]}">${getInitials(task.assignee.fullname)}</div>`
         : `<img src="../../assets/icons/face_icon.svg" alt="">`;
 
-    const pdfBtnHtml = isSflDebriefBoard()
-        ? `<button type="button"
-                   class="std_btn btn_prime d_flex_sc_gs"
-                   onclick="exportTaskPdfFromCard(event, ${task.id})">
-                <span>PDF</span>
-           </button>`
-        : '';
-
     return `
         <li class="column_card" onclick="openTaskDetailDialog(${task.id})">
             <header class="column_card_header">
                 <h4 class="font_white_color">${task.title}</h4>
                 <div class="d_flex_sc_gm">
-                    ${pdfBtnHtml}
                     <img src="../../assets/icons/${task.priority}_prio_colored.svg" alt="">
                     ${assignee_html}
                 </div>
@@ -253,17 +243,6 @@ function getBoardCardMoveBtnTemplate(task) {
 /* ====================== Helpers ====================== */
 
 /**
- * Returns `true` if the current board is an SFL Debriefing board.
- * Checks title for "debriefing" and either "Swiss Football League" or "SFL".
- *
- * @returns {boolean} Whether the current board matches the SFL Debriefing pattern.
- */
-function isSflDebriefBoard() {
-    const t = (window.currentBoard?.title || '').toLowerCase();
-    return t.includes('debriefing') && (t.includes('swiss football league') || t.includes('sfl'));
-}
-
-/**
  * Extracts a short, clean text preview from HTML (removes <style>/<script> content).
  *
  * @param {string} html - Source HTML string.
@@ -285,38 +264,4 @@ function safePreview(html, maxLen) {
     if (!text) return '';
     const limit = Math.max(0, maxLen || 180);
     return text.length <= limit ? text : text.slice(0, limit - 1) + '…';
-}
-
-/**
- * Exports a task as PDF directly from the card (SFL Debriefing boards only).
- * Opens a new tab with the browser print dialog; the user can "Save as PDF".
- *
- * @param {MouseEvent} ev - The click event from the PDF button.
- * @param {number} taskId - The identifier of the task to export.
- * @returns {Promise<void>} Resolves when the export flow has been triggered.
- */
-async function exportTaskPdfFromCard(ev, taskId) {
-    ev.stopPropagation();
-    ev.preventDefault();
-
-    try {
-        const task = (typeof getTaskById === 'function')
-            ? getTaskById(taskId)
-            : (window.currentBoard?.tasks || []).find(t => t.id == taskId);
-        if (!task) return;
-
-        const html = task.description || '';
-        const baseTitle = task.title || 'debriefing';
-
-        const mod = await import('./pdf_export.js'); // same directory as board_templates.js
-        if (typeof mod.exportDebriefingTaskPdf === 'function') {
-            // You can pass options as a third argument if your exporter supports it (e.g. { logoPos: 'bottom-right' })
-            mod.exportDebriefingTaskPdf(html, baseTitle);
-        } else if (typeof mod.downloadDebriefingPdf === 'function') {
-            // Fallback: board-wide export (all tasks)
-            mod.downloadDebriefingPdf();
-        }
-    } catch (e) {
-        console.error('PDF export failed:', e);
-    }
 }
