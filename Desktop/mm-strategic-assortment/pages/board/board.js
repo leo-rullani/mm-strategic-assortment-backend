@@ -94,7 +94,7 @@ async function init() {
     updateKitsButton();
     updateRosterButton();
 
-    await bookletInitArchive();
+    await documentInitLibrary();
 
     const tid = getParamFromUrl('task_id');
     if (tid) openTaskDetailDialog(tid);
@@ -1209,77 +1209,90 @@ function freezeFormValues(root) {
 }
 
 /* ========================================================================== */
-/*  Strategic Assortment booklet archive (frontend-only / IndexedDB)          */
+/*  CH / AT assortment tool document library (shared backend storage)         */
 /* ========================================================================== */
 
-const bookletDbName = 'mm-strategic-assortment-booklets';
-const bookletDbVersion = 1;
-const bookletStoreName = 'booklets';
-const bookletMaxFileSize = 10 * 1024 * 1024;
+const documentMaxFileSize = 10 * 1024 * 1024;
 
-let bookletDbPromise = null;
-let bookletSelectedFile = null;
-let bookletRecords = [];
-let bookletStorageReady = false;
+const documentMarketCatalog = Object.freeze({
+    CH: Object.freeze({ code: 'CH', label: 'Switzerland' }),
+    AT: Object.freeze({ code: 'AT', label: 'Austria' })
+});
+
+const documentTypeCatalog = Object.freeze({
+    booklet: Object.freeze({ label: 'Booklet', mark: 'BK', fileName: 'booklet.html' }),
+    'review-model': Object.freeze({ label: 'Review Model', mark: 'RM', fileName: 'review-model.html' }),
+    'tracking-dashboard': Object.freeze({ label: 'Tracking Dashboard', mark: 'TD', fileName: 'tracking-dashboard.html' }),
+    online: Object.freeze({ label: 'Online', mark: 'ON', fileName: 'online.html' })
+});
+
+let documentSelectedMarket = 'CH';
+let documentSelectedType = 'booklet';
+let documentSelectedFile = null;
+let documentRecords = [];
+let documentStorageReady = false;
+let documentBackendPending = true;
+let documentLoadSequence = 0;
+let documentPreviewReturnFocus = null;
+let documentPreviewSequence = 0;
 
 /**
- * Initializes the local booklet archive after the current board was loaded.
+ * Initializes the shared document library after the current board was loaded.
  * Safe to call more than once.
  *
  * Expected DOM IDs:
- *  - booklet_period (required, input[type="month"])
- *  - booklet_file_input (required, input[type="file"])
- *  - booklet_dropzone (required)
- *  - booklet_upload_button (required)
- *  - booklet_selected_file (optional)
- *  - booklet_status (optional)
- *  - booklet_archive_list (required)
- *  - booklet_archive_filter (optional, input[type="month"])
- *  - booklet_archive_count (optional)
- *  - booklet_choose_file_button (optional)
- *  - booklet_filter_clear_button (optional)
+ *  - document_period (required, input[type="month"])
+ *  - document_file_input (required, input[type="file"])
+ *  - document_dropzone (required)
+ *  - document_upload_button (required)
+ *  - document_selected_file (optional)
+ *  - document_status (optional)
+ *  - document_archive_list (required)
+ *  - document_archive_filter (optional, input[type="month"])
+ *  - document_archive_count (optional)
+ *  - document_choose_file_button (optional)
+ *  - document_filter_clear_button (optional)
  *
  * @returns {Promise<void>}
  */
-async function bookletInitArchive() {
-    const periodInput = document.getElementById('booklet_period');
-    const fileInput = document.getElementById('booklet_file_input');
-    const dropzone = document.getElementById('booklet_dropzone');
-    const uploadButton = document.getElementById('booklet_upload_button');
-    const archiveList = document.getElementById('booklet_archive_list');
+async function documentInitLibrary() {
+    const periodInput = document.getElementById('document_period');
+    const fileInput = document.getElementById('document_file_input');
+    const dropzone = document.getElementById('document_dropzone');
+    const uploadButton = document.getElementById('document_upload_button');
+    const archiveList = document.getElementById('document_archive_list');
 
     if (!periodInput || !fileInput || !dropzone || !uploadButton || !archiveList) {
-        console.warn('[Booklets] Archive markup is incomplete.');
+        console.warn('[Documents] Document-library markup is incomplete.');
         return;
     }
 
-    bookletConfigureStatusRegion();
-    bookletBindArchiveEvents();
-    bookletUpdateUploadState();
+    documentConfigureStatusRegion();
+    documentBindArchiveEvents();
+    documentRenderSelection();
+    documentRenderToolStatus();
+    documentRenderArchive();
+    documentUpdateUploadState();
+    documentSetStorageBadge('loading');
 
-    const boardId = bookletGetBoardId();
+    const boardId = documentGetBoardId();
     if (!boardId) {
-        bookletSetStatus('The board must be loaded before the booklet archive can start.', 'error');
-        return;
-    }
-
-    if (!('indexedDB' in window)) {
-        bookletSetStatus('This browser does not support local booklet storage.', 'error');
+        documentSetStatus('The board must be loaded before the document library can start.', 'error');
         return;
     }
 
     try {
-        await bookletOpenDatabase();
-        bookletStorageReady = true;
-        await bookletLoadArchive();
-        bookletSetStatus('Local booklet archive ready.', 'info');
+        await documentLoadArchive();
+        documentStorageReady = true;
+        documentBackendPending = false;
+        documentSetStatus('Shared document library ready.', 'info');
     } catch (error) {
-        bookletStorageReady = false;
-        console.error('[Booklets] IndexedDB could not be initialized:', error);
-        bookletSetStatus('The local booklet archive could not be opened.', 'error');
+        documentHandleLibraryUnavailable(error, 'The shared document library could not be opened.');
     }
 
-    bookletUpdateUploadState();
+    documentRenderToolStatus();
+    documentRenderArchive();
+    documentUpdateUploadState();
 }
 
 /**
@@ -1287,49 +1300,64 @@ async function bookletInitArchive() {
  *
  * @returns {void}
  */
-function bookletBindArchiveEvents() {
-    const periodInput = document.getElementById('booklet_period');
-    const fileInput = document.getElementById('booklet_file_input');
-    const dropzone = document.getElementById('booklet_dropzone');
-    const chooseButton = document.getElementById('booklet_choose_file_button');
-    const uploadButton = document.getElementById('booklet_upload_button');
-    const archiveList = document.getElementById('booklet_archive_list');
-    const filterInput = document.getElementById('booklet_archive_filter');
-    const clearFilterButton = document.getElementById('booklet_filter_clear_button');
-    const resetButton = document.getElementById('booklet_reset_btn');
+function documentBindArchiveEvents() {
+    const periodInput = document.getElementById('document_period');
+    const salesDateInput = document.getElementById('document_sales_date');
+    const fileInput = document.getElementById('document_file_input');
+    const dropzone = document.getElementById('document_dropzone');
+    const chooseButton = document.getElementById('document_choose_file_button');
+    const uploadButton = document.getElementById('document_upload_button');
+    const archiveList = document.getElementById('document_archive_list');
+    const filterInput = document.getElementById('document_archive_filter');
+    const clearFilterButton = document.getElementById('document_filter_clear_button');
+    const resetButton = document.getElementById('document_reset_btn');
 
-    if (periodInput && !periodInput.dataset.bookletBound) {
+    if (periodInput && !periodInput.dataset.documentBound) {
         periodInput.addEventListener('change', () => {
-            bookletSelectedFile = null;
+            documentSelectedFile = null;
             if (fileInput) fileInput.value = '';
-            bookletRenderSelectedFile();
-            bookletUpdateUploadState();
-            bookletSetStatus(
-                bookletIsValidPeriod(periodInput.value)
-                    ? `Period selected: ${bookletFormatPeriod(periodInput.value)}.`
-                    : 'Select a month before choosing a booklet.',
+            documentRenderSelectedFile();
+            documentUpdateUploadState();
+            documentSetStatus(
+                documentIsValidPeriod(periodInput.value)
+                    ? `${documentGetTypeLabel()} · ${documentFormatPeriod(periodInput.value)} selected for ${documentGetMarketLabel()}.`
+                    : 'Select an edition month before choosing an HTML file.',
                 'info'
             );
         });
-        periodInput.dataset.bookletBound = 'true';
+        periodInput.dataset.documentBound = 'true';
     }
 
-    if (fileInput && !fileInput.dataset.bookletBound) {
+    if (fileInput && !fileInput.dataset.documentBound) {
         fileInput.setAttribute('accept', '.html,.htm,text/html');
-        fileInput.addEventListener('change', () => bookletHandleFiles(fileInput.files));
-        fileInput.dataset.bookletBound = 'true';
+        fileInput.addEventListener('change', () => documentHandleFiles(fileInput.files));
+        fileInput.dataset.documentBound = 'true';
     }
 
-    if (dropzone && !dropzone.dataset.bookletBound) {
+    if (salesDateInput && !salesDateInput.dataset.documentBound) {
+        salesDateInput.addEventListener('change', () => {
+            const value = salesDateInput.value;
+            documentUpdateUploadState();
+            documentSetStatus(
+                value
+                    ? `Sales data status set to ${documentFormatSalesDate(value)}.`
+                    : 'Sales data date is required for every uploaded edition.',
+                'info'
+            );
+        });
+        salesDateInput.dataset.documentBound = 'true';
+    }
+
+    if (dropzone && !dropzone.dataset.documentBound) {
         dropzone.addEventListener('click', event => {
             if (event.target.closest('button, a, input, label')) return;
-            bookletOpenFilePicker();
+            documentOpenFilePicker();
         });
 
         dropzone.addEventListener('keydown', event => {
             if (event.key === 'Enter' || event.key === ' ') {
                 event.preventDefault();
-                bookletOpenFilePicker();
+                documentOpenFilePicker();
             }
         });
 
@@ -1355,57 +1383,331 @@ function bookletBindArchiveEvents() {
             event.preventDefault();
             event.stopPropagation();
             dropzone.classList.remove('is-dragover');
-            bookletHandleFiles(event.dataTransfer?.files || []);
+            documentHandleFiles(event.dataTransfer?.files || []);
         });
 
-        dropzone.dataset.bookletBound = 'true';
+        dropzone.dataset.documentBound = 'true';
     }
 
-    if (chooseButton && !chooseButton.dataset.bookletBound) {
+    if (chooseButton && !chooseButton.dataset.documentBound) {
         chooseButton.addEventListener('click', event => {
             event.preventDefault();
             event.stopPropagation();
-            bookletOpenFilePicker();
+            documentOpenFilePicker();
         });
-        chooseButton.dataset.bookletBound = 'true';
+        chooseButton.dataset.documentBound = 'true';
     }
 
-    if (uploadButton && !uploadButton.dataset.bookletBound) {
-        uploadButton.addEventListener('click', bookletSaveSelectedFile);
-        uploadButton.dataset.bookletBound = 'true';
+    if (uploadButton && !uploadButton.dataset.documentBound) {
+        uploadButton.addEventListener('click', documentSaveSelectedFile);
+        uploadButton.dataset.documentBound = 'true';
     }
 
-    if (filterInput && !filterInput.dataset.bookletBound) {
-        filterInput.addEventListener('change', bookletRenderArchive);
-        filterInput.dataset.bookletBound = 'true';
+    if (filterInput && !filterInput.dataset.documentBound) {
+        filterInput.addEventListener('change', documentRenderArchive);
+        filterInput.dataset.documentBound = 'true';
     }
 
-    if (clearFilterButton && !clearFilterButton.dataset.bookletBound) {
+    if (clearFilterButton && !clearFilterButton.dataset.documentBound) {
         clearFilterButton.addEventListener('click', event => {
             event.preventDefault();
             if (filterInput) filterInput.value = '';
-            bookletRenderArchive();
+            documentRenderArchive();
         });
-        clearFilterButton.dataset.bookletBound = 'true';
+        clearFilterButton.dataset.documentBound = 'true';
     }
 
-    if (resetButton && !resetButton.dataset.bookletBound) {
-        resetButton.addEventListener('click', bookletResetSelection);
-        resetButton.dataset.bookletBound = 'true';
+    if (resetButton && !resetButton.dataset.documentBound) {
+        resetButton.addEventListener('click', documentResetSelection);
+        resetButton.dataset.documentBound = 'true';
     }
 
-    if (archiveList && !archiveList.dataset.bookletBound) {
-        archiveList.addEventListener('click', bookletHandleArchiveAction);
-        archiveList.dataset.bookletBound = 'true';
+    if (archiveList && !archiveList.dataset.documentBound) {
+        archiveList.addEventListener('click', documentHandleArchiveAction);
+        archiveList.dataset.documentBound = 'true';
+    }
+
+    document.querySelectorAll('[data-document-market]').forEach(button => {
+        if (button.dataset.documentMarketBound) return;
+        button.addEventListener('click', () => documentSelectMarket(button.dataset.documentMarket));
+        button.dataset.documentMarketBound = 'true';
+    });
+
+    document.querySelectorAll('[data-document-type]').forEach(button => {
+        if (button.dataset.documentTypeBound) return;
+        button.addEventListener('click', event => {
+            if (event.target.closest('[data-document-action]')) return;
+            documentSelectType(button.dataset.documentType);
+        });
+        button.dataset.documentTypeBound = 'true';
+    });
+
+    documentBindTabKeyboard('.document-market-tabs', '[data-document-market]');
+    documentBindTabKeyboard('.document-tool-grid', '[data-document-type]');
+
+    const previewDialog = document.getElementById('document_preview_dialog');
+    document.querySelectorAll('[data-document-preview-close]').forEach(previewClose => {
+        if (previewClose.dataset.documentBound) return;
+        previewClose.addEventListener('click', documentClosePreview);
+        previewClose.dataset.documentBound = 'true';
+    });
+
+    if (previewDialog && !previewDialog.dataset.documentBound) {
+        previewDialog.addEventListener('cancel', event => {
+            event.preventDefault();
+            documentClosePreview();
+        });
+        previewDialog.addEventListener('close', documentClearPreview);
+        previewDialog.addEventListener('click', event => {
+            if (event.target === previewDialog) documentClosePreview();
+        });
+        previewDialog.dataset.documentBound = 'true';
+    }
+
+    if (!document.documentElement.dataset.documentPreviewKeyBound) {
+        document.addEventListener('keydown', event => {
+            const activePreview = document.getElementById('document_preview_dialog');
+            if (event.key === 'Escape' && activePreview && !activePreview.hidden) {
+                event.preventDefault();
+                documentClosePreview();
+            }
+        });
+        document.documentElement.dataset.documentPreviewKeyBound = 'true';
     }
 }
 
 /**
- * Expands or collapses the Strategic Assortment booklet workspace.
+ * Adds arrow-key, Home and End navigation to one accessible tab list.
+ *
+ * @param {string} listSelector
+ * @param {string} tabSelector
+ * @returns {void}
  */
-function toggleBookletHub(forceOpen) {
-    const hub = document.getElementById('booklet_hub');
-    const button = document.getElementById('booklet-toggle-btn');
+function documentBindTabKeyboard(listSelector, tabSelector) {
+    const tabList = document.querySelector(listSelector);
+    if (!tabList || tabList.dataset.documentKeyboardBound) return;
+
+    tabList.addEventListener('keydown', event => {
+        if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+
+        const tabs = Array.from(tabList.querySelectorAll(tabSelector));
+        if (!tabs.length) return;
+
+        const currentIndex = Math.max(0, tabs.indexOf(document.activeElement));
+        let nextIndex = currentIndex;
+
+        if (event.key === 'Home') nextIndex = 0;
+        if (event.key === 'End') nextIndex = tabs.length - 1;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+            nextIndex = (currentIndex + 1) % tabs.length;
+        }
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+            nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+        }
+
+        event.preventDefault();
+        tabs[nextIndex].focus();
+        tabs[nextIndex].click();
+    });
+
+    tabList.dataset.documentKeyboardBound = 'true';
+}
+
+/**
+ * Selects one market and refreshes the shared upload/archive workspace.
+ *
+ * @param {string} market
+ * @returns {void}
+ */
+function documentSelectMarket(market) {
+    const normalized = String(market || '').toUpperCase();
+    if (!documentMarketCatalog[normalized]) return;
+
+    const changed = normalized !== documentSelectedMarket;
+    documentSelectedMarket = normalized;
+    if (changed) {
+        documentClearPendingSelection();
+        const filter = document.getElementById('document_archive_filter');
+        if (filter) filter.value = '';
+    }
+
+    documentRenderSelection();
+    documentRenderToolStatus();
+    documentRenderArchive();
+    documentSetStatus(`${documentGetMarketLabel()} selected. Choose one of the four tools.`, 'info');
+}
+
+/**
+ * Selects one of the four assortment tools.
+ *
+ * @param {string} type
+ * @returns {void}
+ */
+function documentSelectType(type) {
+    const normalized = documentNormalizeType(type);
+    if (!documentTypeCatalog[normalized]) return;
+
+    const changed = normalized !== documentSelectedType;
+    documentSelectedType = normalized;
+    if (changed) {
+        documentClearPendingSelection();
+        const filter = document.getElementById('document_archive_filter');
+        if (filter) filter.value = '';
+    }
+
+    documentRenderSelection();
+    documentRenderToolStatus();
+    documentRenderArchive();
+    documentSetStatus(`${documentGetTypeLabel()} selected for ${documentGetMarketLabel()}.`, 'info');
+}
+
+/**
+ * Reflects active country/tool state in labels, ARIA attributes and cards.
+ *
+ * @returns {void}
+ */
+function documentRenderSelection() {
+    document.querySelectorAll('[data-document-market]').forEach(button => {
+        const active = String(button.dataset.documentMarket || '').toUpperCase() === documentSelectedMarket;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-selected', String(active));
+        if (button.getAttribute('role') === 'tab') {
+            button.removeAttribute('aria-pressed');
+            button.tabIndex = active ? 0 : -1;
+        } else {
+            button.setAttribute('aria-pressed', String(active));
+        }
+    });
+
+    document.querySelectorAll('[data-document-type]').forEach(button => {
+        const active = documentNormalizeType(button.dataset.documentType) === documentSelectedType;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-selected', String(active));
+        if (button.getAttribute('role') === 'tab') {
+            button.removeAttribute('aria-pressed');
+            button.tabIndex = active ? 0 : -1;
+        } else {
+            button.setAttribute('aria-pressed', String(active));
+        }
+    });
+
+    const marketOutput = document.getElementById('document_selected_market');
+    const toolOutput = document.getElementById('document_selected_tool');
+    const flagOutput = document.getElementById('document_selected_flag');
+    const badgeOutput = document.getElementById('document_selection_badge');
+    const summaryOutput = document.getElementById('document_selection_summary');
+    const hub = document.getElementById('document_hub');
+
+    if (marketOutput) marketOutput.textContent = documentGetMarketLabel();
+    if (toolOutput) toolOutput.textContent = documentGetTypeLabel();
+    if (flagOutput) {
+        flagOutput.src = `../../assets/icons/flag-${documentSelectedMarket.toLowerCase()}.svg.webp`;
+        flagOutput.alt = `${documentGetMarketLabel()} flag`;
+    }
+    if (badgeOutput) badgeOutput.textContent = `${documentSelectedMarket} · ${documentGetTypeLabel()}`;
+    if (summaryOutput) {
+        summaryOutput.textContent = `Add a monthly ${documentGetTypeLabel()} HTML edition and record the sales-data date it contains.`;
+    }
+    if (hub) {
+        hub.dataset.selectedMarket = documentSelectedMarket;
+        hub.dataset.selectedType = documentSelectedType;
+    }
+}
+
+/**
+ * Renders availability and data-status values for all four tools in the
+ * currently selected country.
+ *
+ * @returns {void}
+ */
+function documentRenderToolStatus() {
+    Object.keys(documentTypeCatalog).forEach(type => {
+        const records = documentGetRecords(documentSelectedMarket, type);
+        const latest = records[0] || null;
+        let state = 'empty';
+        let statusLabel = 'No edition';
+
+        if (!documentStorageReady) {
+            state = 'offline';
+            statusLabel = documentBackendPending ? 'Backend pending' : 'Unavailable';
+        } else if (latest) {
+            state = 'available';
+            statusLabel = 'Available';
+        }
+
+        documentSetText(documentGetToolStatusId(type, 'status'), statusLabel);
+        documentSetText(
+            documentGetToolStatusId(type, 'latest'),
+            latest ? documentFormatPeriod(latest.period) : '—'
+        );
+        documentSetText(
+            documentGetToolStatusId(type, 'sales_date'),
+            latest
+                ? latest.salesDate ? documentFormatSalesDate(latest.salesDate) : 'Not provided'
+                : '—'
+        );
+        documentSetText(
+            documentGetToolStatusId(type, 'updated'),
+            latest ? documentFormatDate(latest.updatedAt || latest.createdAt) : '—'
+        );
+        documentSetText(
+            documentGetToolStatusId(type, 'count'),
+            `${records.length} edition${records.length === 1 ? '' : 's'}`
+        );
+
+        document.querySelectorAll(`[data-document-type="${type}"]`).forEach(card => {
+            card.dataset.state = state;
+        });
+    });
+}
+
+/**
+ * Returns sorted records for one market/tool combination.
+ *
+ * @param {string} market
+ * @param {string} type
+ * @returns {Array<Object>}
+ */
+function documentGetRecords(market = documentSelectedMarket, type = documentSelectedType) {
+    const normalizedMarket = String(market || '').toUpperCase();
+    const normalizedType = documentNormalizeType(type);
+    return documentRecords.filter(record => (
+        record.market === normalizedMarket && record.type === normalizedType
+    ));
+}
+
+/**
+ * Converts historic or backend-provided type aliases to the frontend contract.
+ *
+ * @param {*} value
+ * @returns {string}
+ */
+function documentNormalizeType(value) {
+    const normalized = String(value || '').trim().toLowerCase().replace(/_/g, '-');
+    return normalized === 'strategic-assortment' ? 'booklet' : normalized;
+}
+
+function documentGetMarketLabel() {
+    return documentMarketCatalog[documentSelectedMarket]?.label || documentSelectedMarket;
+}
+
+function documentGetTypeLabel(type = documentSelectedType) {
+    return documentTypeCatalog[documentNormalizeType(type)]?.label || String(type || 'Document');
+}
+
+function documentGetToolStatusId(type, field) {
+    return `document_tool_${documentNormalizeType(type).replace(/-/g, '_')}_${field}`;
+}
+
+function documentSetText(id, value) {
+    const element = document.getElementById(id);
+    if (element) element.textContent = String(value ?? '');
+}
+
+/** Expands or collapses the CH/AT tool document workspace. */
+function toggleDocumentHub(forceOpen) {
+    const hub = document.getElementById('document_hub');
+    const button = document.getElementById('document-toggle-btn');
     if (!hub) return;
 
     const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : hub.hidden;
@@ -1414,24 +1716,53 @@ function toggleBookletHub(forceOpen) {
     button?.classList.toggle('is-active', shouldOpen);
 
     if (shouldOpen) {
+        const wasReady = documentStorageReady;
+        void documentLoadArchive()
+            .then(() => {
+                documentStorageReady = true;
+                documentBackendPending = false;
+                documentRenderToolStatus();
+                documentRenderArchive();
+                documentUpdateUploadState();
+                if (!wasReady) documentSetStatus('Shared document library ready.', 'info');
+            })
+            .catch(error => {
+                documentHandleLibraryUnavailable(error, 'The shared document library could not be refreshed.');
+            });
         window.requestAnimationFrame(() => {
             hub.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
     }
 }
 
+/** Backwards-compatible alias for old cached markup. */
+function toggleBookletHub(forceOpen) {
+    toggleDocumentHub(forceOpen);
+}
+
 /**
  * Clears the pending month/file selection without deleting archived editions.
  */
-function bookletResetSelection() {
-    const periodInput = document.getElementById('booklet_period');
-    const fileInput = document.getElementById('booklet_file_input');
-    bookletSelectedFile = null;
+function documentResetSelection() {
+    documentClearPendingSelection();
+    documentSetStatus('Selection reset. Choose an edition month to continue.', 'info');
+}
+
+/**
+ * Clears only the pending upload; centrally stored editions remain untouched.
+ *
+ * @returns {void}
+ */
+function documentClearPendingSelection() {
+    const periodInput = document.getElementById('document_period');
+    const salesDateInput = document.getElementById('document_sales_date');
+    const fileInput = document.getElementById('document_file_input');
+    documentSelectedFile = null;
     if (periodInput) periodInput.value = '';
+    if (salesDateInput) salesDateInput.value = '';
     if (fileInput) fileInput.value = '';
-    bookletRenderSelectedFile();
-    bookletUpdateUploadState();
-    bookletSetStatus('Selection reset. Choose an edition month to continue.', 'info');
+    documentRenderSelectedFile();
+    documentUpdateUploadState();
 }
 
 /**
@@ -1440,8 +1771,8 @@ function bookletResetSelection() {
  *
  * @returns {void}
  */
-function bookletConfigureStatusRegion() {
-    const status = document.getElementById('booklet_status');
+function documentConfigureStatusRegion() {
+    const status = document.getElementById('document_status');
     if (!status) return;
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
@@ -1453,7 +1784,7 @@ function bookletConfigureStatusRegion() {
  *
  * @returns {string}
  */
-function bookletGetBoardId() {
+function documentGetBoardId() {
     if (window.currentBoard?.id !== undefined && window.currentBoard?.id !== null) {
         return String(window.currentBoard.id);
     }
@@ -1468,67 +1799,118 @@ function bookletGetBoardId() {
 }
 
 /**
- * Opens (and if necessary creates) the local IndexedDB database.
+ * Builds an absolute URL below the configured API base.
  *
- * @returns {Promise<IDBDatabase>}
+ * @param {string} endpoint
+ * @returns {string}
  */
-function bookletOpenDatabase() {
-    if (bookletDbPromise) return bookletDbPromise;
-
-    bookletDbPromise = new Promise((resolve, reject) => {
-        const request = indexedDB.open(bookletDbName, bookletDbVersion);
-
-        request.onupgradeneeded = () => {
-            const database = request.result;
-            let store;
-
-            if (!database.objectStoreNames.contains(bookletStoreName)) {
-                store = database.createObjectStore(bookletStoreName, { keyPath: 'id' });
-            } else {
-                store = request.transaction.objectStore(bookletStoreName);
-            }
-
-            if (!store.indexNames.contains('boardId')) {
-                store.createIndex('boardId', 'boardId', { unique: false });
-            }
-        };
-
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error || new Error('IndexedDB could not be opened.'));
-        request.onblocked = () => reject(new Error('IndexedDB upgrade is blocked by another tab.'));
-    }).catch(error => {
-        bookletDbPromise = null;
-        throw error;
-    });
-
-    return bookletDbPromise;
+function documentApiUrl(endpoint) {
+    const base = typeof API_BASE_URL === 'string' && API_BASE_URL
+        ? API_BASE_URL
+        : '/api/';
+    return `${base.replace(/\/+$/, '')}/${String(endpoint || '').replace(/^\/+/, '')}`;
 }
 
 /**
- * Resolves when an IndexedDB transaction is fully committed.
+ * Resolves a server-provided URL against the configured API host.
  *
- * @param {IDBTransaction} transaction
- * @returns {Promise<void>}
+ * @param {string} value
+ * @param {string} fallbackEndpoint
+ * @returns {string}
  */
-function bookletTransactionDone(transaction) {
-    return new Promise((resolve, reject) => {
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = () => reject(transaction.error || new Error('Booklet transaction failed.'));
-        transaction.onabort = () => reject(transaction.error || new Error('Booklet transaction was aborted.'));
-    });
+function documentResolveApiUrl(value, fallbackEndpoint) {
+    const fallback = documentApiUrl(fallbackEndpoint);
+    if (!value) return fallback;
+
+    try {
+        const apiBase = new URL(documentApiUrl(''), window.location.href);
+        const candidate = String(value);
+        const resolved = new URL(candidate, candidate.startsWith('/') ? apiBase.origin : apiBase.href);
+        return resolved.origin === apiBase.origin ? resolved.href : fallback;
+    } catch (_) {
+        return fallback;
+    }
 }
 
 /**
- * Converts an IndexedDB request into a Promise.
+ * Returns Token-authenticated headers without setting Content-Type for FormData.
  *
- * @param {IDBRequest} request
- * @returns {Promise<*>}
+ * @returns {Object<string,string>}
  */
-function bookletRequestResult(request) {
-    return new Promise((resolve, reject) => {
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error || new Error('Booklet request failed.'));
-    });
+function documentAuthHeaders() {
+    return typeof createHeaders === 'function' ? createHeaders() : {};
+}
+
+/**
+ * Reads the most useful validation/API error from a failed response payload.
+ *
+ * @param {Response} response
+ * @returns {Promise<string>}
+ */
+async function documentReadResponseError(response) {
+    let payload = null;
+    try {
+        payload = await response.clone().json();
+    } catch (_) {
+        try {
+            payload = await response.text();
+        } catch (_) {
+            payload = null;
+        }
+    }
+
+    if (typeof payload === 'string' && payload.trim()) return payload.trim();
+    if (payload && typeof payload === 'object') {
+        if (typeof payload.detail === 'string') return payload.detail;
+        const messages = typeof extractErrorMessages === 'function'
+            ? extractErrorMessages(payload)
+            : Object.values(payload).flat().map(String);
+        if (messages.length) return messages.join(' ');
+    }
+    return `Request failed (HTTP ${response.status}).`;
+}
+
+/**
+ * Creates an Error that keeps the HTTP status for graceful frontend-first
+ * handling of a not-yet-installed API endpoint.
+ *
+ * @param {Response} response
+ * @returns {Promise<Error>}
+ */
+async function documentCreateApiError(response) {
+    const error = new Error(await documentReadResponseError(response));
+    error.status = response.status;
+    return error;
+}
+
+/**
+ * Normalizes backend snake_case metadata for the existing archive UI.
+ *
+ * @param {Object} record
+ * @returns {Object}
+ */
+function documentNormalizeRecord(record) {
+    const id = record?.id === undefined || record?.id === null ? '' : String(record.id);
+    const type = documentNormalizeType(record?.document_type || record?.type || 'booklet');
+    const market = String(record?.market || record?.country || 'CH').toUpperCase();
+    return {
+        id,
+        boardId: record?.board === undefined || record?.board === null ? '' : String(record.board),
+        market: documentMarketCatalog[market] ? market : 'CH',
+        type: documentTypeCatalog[type] ? type : 'booklet',
+        period: record?.period || '',
+        salesDate: record?.sales_date || record?.sales_data_date || record?.salesDate || '',
+        fileName: record?.file_name || documentTypeCatalog[type]?.fileName || 'document.html',
+        mimeType: record?.mime_type || 'text/html',
+        size: Number(record?.size) || 0,
+        uploadedBy: record?.uploaded_by || null,
+        createdAt: record?.created_at || '',
+        updatedAt: record?.updated_at || record?.created_at || '',
+        contentUrl: documentResolveApiUrl(
+            record?.content_url,
+            `documents/${encodeURIComponent(id)}/content/`
+        )
+    };
 }
 
 /**
@@ -1536,18 +1918,35 @@ function bookletRequestResult(request) {
  *
  * @returns {Promise<void>}
  */
-async function bookletLoadArchive() {
-    const boardId = bookletGetBoardId();
+async function documentLoadArchive() {
+    const boardId = documentGetBoardId();
     if (!boardId) return;
+    const requestSequence = ++documentLoadSequence;
 
-    const database = await bookletOpenDatabase();
-    const transaction = database.transaction(bookletStoreName, 'readonly');
-    const store = transaction.objectStore(bookletStoreName);
-    const request = store.index('boardId').getAll(boardId);
+    const response = await fetch(
+        documentApiUrl(`boards/${encodeURIComponent(boardId)}/documents/`),
+        { method: 'GET', headers: documentAuthHeaders() }
+    );
+    if (!response.ok) {
+        throw await documentCreateApiError(response);
+    }
 
-    bookletRecords = await bookletRequestResult(request);
-    bookletSortRecords();
-    bookletRenderArchive();
+    const payload = await response.json();
+    const rows = Array.isArray(payload) ? payload : payload?.results;
+    if (!Array.isArray(rows)) {
+        throw new Error('The document archive returned an invalid response.');
+    }
+
+    if (requestSequence !== documentLoadSequence) return;
+
+    documentRecords = rows.map(documentNormalizeRecord);
+    documentSortRecords();
+    documentStorageReady = true;
+    documentBackendPending = false;
+    documentSetStorageBadge('ready');
+    documentRenderToolStatus();
+    documentRenderArchive();
+    documentUpdateUploadState();
 }
 
 /**
@@ -1555,8 +1954,8 @@ async function bookletLoadArchive() {
  *
  * @returns {void}
  */
-function bookletSortRecords() {
-    bookletRecords.sort((first, second) => {
+function documentSortRecords() {
+    documentRecords.sort((first, second) => {
         const periodOrder = String(second.period || '').localeCompare(String(first.period || ''));
         if (periodOrder !== 0) return periodOrder;
         return String(second.updatedAt || second.createdAt || '')
@@ -1569,12 +1968,12 @@ function bookletSortRecords() {
  *
  * @returns {void}
  */
-function bookletOpenFilePicker() {
-    const periodInput = document.getElementById('booklet_period');
-    const fileInput = document.getElementById('booklet_file_input');
+function documentOpenFilePicker() {
+    const periodInput = document.getElementById('document_period');
+    const fileInput = document.getElementById('document_file_input');
 
-    if (!periodInput || !bookletIsValidPeriod(periodInput.value)) {
-        bookletSetStatus('Select the Strategic Assortment month first.', 'error');
+    if (!periodInput || !documentIsValidPeriod(periodInput.value)) {
+        documentSetStatus(`Select the ${documentGetTypeLabel()} edition month first.`, 'error');
         periodInput?.focus();
         return;
     }
@@ -1588,27 +1987,27 @@ function bookletOpenFilePicker() {
  * @param {FileList|File[]} files
  * @returns {void}
  */
-function bookletHandleFiles(files) {
-    const periodInput = document.getElementById('booklet_period');
-    const fileInput = document.getElementById('booklet_file_input');
+function documentHandleFiles(files) {
+    const periodInput = document.getElementById('document_period');
+    const fileInput = document.getElementById('document_file_input');
     const fileArray = Array.from(files || []);
 
-    if (!periodInput || !bookletIsValidPeriod(periodInput.value)) {
-        bookletSelectedFile = null;
+    if (!periodInput || !documentIsValidPeriod(periodInput.value)) {
+        documentSelectedFile = null;
         if (fileInput) fileInput.value = '';
-        bookletRenderSelectedFile();
-        bookletUpdateUploadState();
-        bookletSetStatus('Select the Strategic Assortment month before adding a file.', 'error');
+        documentRenderSelectedFile();
+        documentUpdateUploadState();
+        documentSetStatus(`Select the ${documentGetTypeLabel()} edition month before adding a file.`, 'error');
         periodInput?.focus();
         return;
     }
 
     if (fileArray.length !== 1) {
-        bookletSelectedFile = null;
+        documentSelectedFile = null;
         if (fileInput) fileInput.value = '';
-        bookletRenderSelectedFile();
-        bookletUpdateUploadState();
-        bookletSetStatus('Choose exactly one HTML file.', 'error');
+        documentRenderSelectedFile();
+        documentUpdateUploadState();
+        documentSetStatus('Choose exactly one HTML file.', 'error');
         return;
     }
 
@@ -1617,37 +2016,37 @@ function bookletHandleFiles(files) {
     const hasAllowedExtension = lowerName.endsWith('.html') || lowerName.endsWith('.htm');
 
     if (!hasAllowedExtension) {
-        bookletSelectedFile = null;
+        documentSelectedFile = null;
         if (fileInput) fileInput.value = '';
-        bookletRenderSelectedFile();
-        bookletUpdateUploadState();
-        bookletSetStatus('Only .html or .htm booklets are accepted.', 'error');
+        documentRenderSelectedFile();
+        documentUpdateUploadState();
+        documentSetStatus('Only .html or .htm tool files are accepted.', 'error');
         return;
     }
 
     if (file.size <= 0) {
-        bookletSelectedFile = null;
+        documentSelectedFile = null;
         if (fileInput) fileInput.value = '';
-        bookletRenderSelectedFile();
-        bookletUpdateUploadState();
-        bookletSetStatus('The selected HTML file is empty.', 'error');
+        documentRenderSelectedFile();
+        documentUpdateUploadState();
+        documentSetStatus('The selected HTML file is empty.', 'error');
         return;
     }
 
-    if (file.size > bookletMaxFileSize) {
-        bookletSelectedFile = null;
+    if (file.size > documentMaxFileSize) {
+        documentSelectedFile = null;
         if (fileInput) fileInput.value = '';
-        bookletRenderSelectedFile();
-        bookletUpdateUploadState();
-        bookletSetStatus('The booklet must not be larger than 10 MB.', 'error');
+        documentRenderSelectedFile();
+        documentUpdateUploadState();
+        documentSetStatus('The HTML tool file must not be larger than 10 MB.', 'error');
         return;
     }
 
-    bookletSelectedFile = file;
-    bookletRenderSelectedFile();
-    bookletUpdateUploadState();
-    bookletSetStatus(
-        `${file.name} is ready for ${bookletFormatPeriod(periodInput.value)}.`,
+    documentSelectedFile = file;
+    documentRenderSelectedFile();
+    documentUpdateUploadState();
+    documentSetStatus(
+        `${file.name} is ready as ${documentGetTypeLabel()} · ${documentSelectedMarket} · ${documentFormatPeriod(periodInput.value)}.`,
         'success'
     );
 }
@@ -1657,12 +2056,12 @@ function bookletHandleFiles(files) {
  *
  * @returns {void}
  */
-function bookletRenderSelectedFile() {
-    const output = document.getElementById('booklet_selected_file');
-    const dropzone = document.getElementById('booklet_dropzone');
+function documentRenderSelectedFile() {
+    const output = document.getElementById('document_selected_file');
+    const dropzone = document.getElementById('document_dropzone');
     if (!output) return;
 
-    if (!bookletSelectedFile) {
+    if (!documentSelectedFile) {
         output.textContent = 'No HTML file selected';
         output.removeAttribute('title');
         output.classList.remove('has-file');
@@ -1670,8 +2069,8 @@ function bookletRenderSelectedFile() {
         return;
     }
 
-    output.textContent = `${bookletSelectedFile.name} · ${bookletFormatBytes(bookletSelectedFile.size)}`;
-    output.title = bookletSelectedFile.name;
+    output.textContent = `${documentSelectedFile.name} · ${documentFormatBytes(documentSelectedFile.size)}`;
+    output.title = documentSelectedFile.name;
     output.classList.add('has-file');
     dropzone?.classList.add('has-file');
 }
@@ -1681,124 +2080,158 @@ function bookletRenderSelectedFile() {
  *
  * @returns {void}
  */
-function bookletUpdateUploadState() {
-    const uploadButton = document.getElementById('booklet_upload_button');
-    const period = document.getElementById('booklet_period')?.value || '';
+function documentUpdateUploadState() {
+    const uploadButton = document.getElementById('document_upload_button');
+    const period = document.getElementById('document_period')?.value || '';
+    const salesDate = document.getElementById('document_sales_date')?.value || '';
     if (!uploadButton) return;
 
     uploadButton.disabled = !(
-        bookletStorageReady &&
-        bookletSelectedFile &&
-        bookletIsValidPeriod(period)
+        documentStorageReady &&
+        documentSelectedFile &&
+        documentIsValidPeriod(period) &&
+        documentIsValidDate(salesDate)
     );
 }
 
 /**
- * Stores the selected file. There is exactly one record per board and month.
+ * Stores the selected file. There is exactly one record per board, market,
+ * tool and month.
  * An existing record is replaced only after user confirmation.
  *
  * @returns {Promise<void>}
  */
-async function bookletSaveSelectedFile() {
-    const periodInput = document.getElementById('booklet_period');
-    const fileInput = document.getElementById('booklet_file_input');
-    const uploadButton = document.getElementById('booklet_upload_button');
-    const boardId = bookletGetBoardId();
+async function documentSaveSelectedFile() {
+    const periodInput = document.getElementById('document_period');
+    const salesDateInput = document.getElementById('document_sales_date');
+    const uploadButton = document.getElementById('document_upload_button');
+    const boardId = documentGetBoardId();
     const period = periodInput?.value || '';
+    const salesDate = salesDateInput?.value || '';
 
-    if (!bookletStorageReady) {
-        bookletSetStatus('The local booklet archive is not available.', 'error');
+    if (!documentStorageReady) {
+        documentSetStatus(
+            documentBackendPending
+                ? 'The frontend is ready; uploads become available after the document API is installed.'
+                : 'The shared document library is currently unavailable.',
+            'error'
+        );
         return;
     }
 
-    if (!boardId || !bookletIsValidPeriod(period)) {
-        bookletSetStatus('Select a valid month before uploading.', 'error');
+    if (!boardId || !documentIsValidPeriod(period)) {
+        documentSetStatus('Select a valid month before uploading.', 'error');
         periodInput?.focus();
         return;
     }
 
-    if (!bookletSelectedFile) {
-        bookletSetStatus('Choose one HTML booklet first.', 'error');
+    if (!documentIsValidDate(salesDate)) {
+        documentSetStatus('Select the sales data date contained in this edition.', 'error');
+        salesDateInput?.focus();
         return;
     }
 
-    const recordId = bookletCreateRecordId(boardId, period);
-    const existingRecord = bookletRecords.find(record => record.id === recordId);
+    if (!documentSelectedFile) {
+        documentSetStatus(`Choose one ${documentGetTypeLabel()} HTML file first.`, 'error');
+        return;
+    }
+
+    const documentType = documentSelectedType;
+    const market = documentSelectedMarket;
+    const existingRecord = documentGetRecords(market, documentType)
+        .find(record => record.period === period);
+    let replacing = Boolean(existingRecord);
 
     if (existingRecord) {
         const shouldReplace = window.confirm(
-            `A Strategic Assortment booklet for ${bookletFormatPeriod(period)} already exists. Replace it?`
+            `A ${documentGetTypeLabel()} edition for ${documentGetMarketLabel()} and ${documentFormatPeriod(period)} already exists. Replace it?`
         );
         if (!shouldReplace) {
-            bookletSetStatus('Replacement cancelled. The existing booklet was kept.', 'info');
+            documentSetStatus('Replacement cancelled. The existing document was kept.', 'info');
             return;
         }
     }
 
     uploadButton?.setAttribute('aria-busy', 'true');
     if (uploadButton) uploadButton.disabled = true;
-    bookletSetStatus('Saving booklet locally…', 'info');
+    documentSetStatus(
+        replacing
+            ? `Replacing the shared ${documentGetTypeLabel()} edition…`
+            : `Uploading ${documentGetTypeLabel()} to the shared archive…`,
+        'info'
+    );
 
     try {
-        const html = await bookletSelectedFile.text();
-        const now = new Date().toISOString();
-        const record = {
-            id: recordId,
-            boardId,
-            category: 'Strategic Assortment',
-            period,
-            fileName: bookletSelectedFile.name,
-            mimeType: bookletSelectedFile.type || 'text/html',
-            size: bookletSelectedFile.size,
-            createdAt: existingRecord?.createdAt || now,
-            updatedAt: now,
-            html
+        const uploadDocument = async replaceExisting => {
+            const formData = new FormData();
+            formData.append('file', documentSelectedFile, documentSelectedFile.name);
+            formData.append('market', market);
+            formData.append('document_type', documentType);
+            formData.append('period', period);
+            formData.append('sales_date', salesDate);
+            formData.append('replace', replaceExisting ? 'true' : 'false');
+
+            return fetch(
+                documentApiUrl(`boards/${encodeURIComponent(boardId)}/documents/`),
+                {
+                    method: 'POST',
+                    headers: documentAuthHeaders(),
+                    body: formData
+                }
+            );
         };
 
-        await bookletWriteRecord(record);
-        bookletSelectedFile = null;
-        if (fileInput) fileInput.value = '';
-        bookletRenderSelectedFile();
-        await bookletLoadArchive();
-        bookletSetStatus(
-            `Strategic Assortment ${bookletFormatPeriod(period)} was saved locally.`,
+        let response = await uploadDocument(replacing);
+        if (response.status === 409 && !replacing) {
+            const replaceRemoteEdition = window.confirm(
+                `Another board member has already added ${documentGetTypeLabel()} · ${market} · ${documentFormatPeriod(period)}. Replace that shared edition?`
+            );
+            if (!replaceRemoteEdition) {
+                await documentLoadArchive();
+                documentSetStatus('Replacement cancelled. The shared edition was kept.', 'info');
+                return;
+            }
+            replacing = true;
+            response = await uploadDocument(true);
+        }
+
+        if (!response.ok) {
+            throw await documentCreateApiError(response);
+        }
+
+        documentClearPendingSelection();
+        await documentLoadArchive();
+        documentSetStatus(
+            `${documentGetTypeLabel(documentType)} · ${market} · ${documentFormatPeriod(period)} was ${replacing ? 'replaced' : 'added'} in the shared archive.`,
             'success'
         );
     } catch (error) {
-        console.error('[Booklets] File could not be stored:', error);
-        bookletSetStatus('The booklet could not be saved locally.', 'error');
+        console.error('[Documents] File could not be uploaded:', error);
+        if (error?.status === 404 || error?.status === 405) {
+            documentHandleLibraryUnavailable(error, 'The document API is not active yet.');
+        } else {
+            documentSetStatus(documentGetErrorMessage(error, 'The document could not be uploaded.'), 'error');
+        }
     } finally {
         uploadButton?.removeAttribute('aria-busy');
-        bookletUpdateUploadState();
+        documentUpdateUploadState();
     }
 }
 
 /**
- * Writes or replaces a single IndexedDB record.
- *
- * @param {Object} record
- * @returns {Promise<void>}
- */
-async function bookletWriteRecord(record) {
-    const database = await bookletOpenDatabase();
-    const transaction = database.transaction(bookletStoreName, 'readwrite');
-    const completion = bookletTransactionDone(transaction);
-    transaction.objectStore(bookletStoreName).put(record);
-    await completion;
-}
-
-/**
- * Deletes a single IndexedDB record.
+ * Deletes one shared server record.
  *
  * @param {string} id
  * @returns {Promise<void>}
  */
-async function bookletDeleteRecord(id) {
-    const database = await bookletOpenDatabase();
-    const transaction = database.transaction(bookletStoreName, 'readwrite');
-    const completion = bookletTransactionDone(transaction);
-    transaction.objectStore(bookletStoreName).delete(id);
-    await completion;
+async function documentDeleteRecord(id) {
+    const response = await fetch(
+        documentApiUrl(`documents/${encodeURIComponent(id)}/`),
+        { method: 'DELETE', headers: documentAuthHeaders() }
+    );
+    if (!response.ok) {
+        throw await documentCreateApiError(response);
+    }
 }
 
 /**
@@ -1807,147 +2240,302 @@ async function bookletDeleteRecord(id) {
  * @param {MouseEvent} event
  * @returns {Promise<void>}
  */
-async function bookletHandleArchiveAction(event) {
-    const button = event.target.closest('[data-booklet-action][data-booklet-id]');
+async function documentHandleArchiveAction(event) {
+    const button = event.target.closest('[data-document-action][data-document-id]');
     if (!button) return;
 
     event.preventDefault();
-    const id = button.dataset.bookletId || '';
-    const action = button.dataset.bookletAction;
+    const id = button.dataset.documentId || '';
+    const action = button.dataset.documentAction;
 
     if (action === 'open') {
-        bookletOpenRecord(id);
+        await documentOpenRecord(id);
         return;
     }
 
     if (action !== 'delete') return;
 
-    const record = bookletRecords.find(item => item.id === id);
+    const record = documentRecords.find(item => item.id === id);
     if (!record) {
-        bookletSetStatus('The selected booklet no longer exists.', 'error');
+        documentSetStatus('The selected document no longer exists.', 'error');
         return;
     }
 
     const shouldDelete = window.confirm(
-        `Delete Strategic Assortment ${bookletFormatPeriod(record.period)} from this browser?`
+        `Delete ${documentGetTypeLabel(record.type)} · ${record.market} · ${documentFormatPeriod(record.period)} from the shared archive for all board members?`
     );
     if (!shouldDelete) return;
 
     button.disabled = true;
     try {
-        await bookletDeleteRecord(id);
-        await bookletLoadArchive();
-        bookletSetStatus(
-            `Strategic Assortment ${bookletFormatPeriod(record.period)} was deleted.`,
+        await documentDeleteRecord(id);
+        await documentLoadArchive();
+        documentSetStatus(
+            `${documentGetTypeLabel(record.type)} · ${record.market} · ${documentFormatPeriod(record.period)} was deleted.`,
             'success'
         );
     } catch (error) {
-        console.error('[Booklets] Record could not be deleted:', error);
+        console.error('[Documents] Record could not be deleted:', error);
         button.disabled = false;
-        bookletSetStatus('The booklet could not be deleted.', 'error');
+        if (error?.status === 404 || error?.status === 405) {
+            documentHandleLibraryUnavailable(error, 'The document API is not active yet.');
+        } else {
+            documentSetStatus(documentGetErrorMessage(error, 'The document could not be deleted.'), 'error');
+        }
     }
 }
 
 /**
- * Opens a stored HTML booklet in a separate, opener-isolated tab.
+ * Opens a server-stored HTML tool inside the page's sandboxed preview iframe.
+ * The iframe deliberately allows scripts for interactive dashboards, but does
+ * not receive `allow-same-origin`, so uploaded code cannot access app storage.
  *
  * @param {string} id
- * @returns {void}
+ * @returns {Promise<void>}
  */
-function bookletOpenRecord(id) {
-    const record = bookletRecords.find(item => item.id === id);
+async function documentOpenRecord(id) {
+    const record = documentRecords.find(item => item.id === id);
     if (!record) {
-        bookletSetStatus('The selected booklet no longer exists.', 'error');
+        documentSetStatus('The selected document no longer exists.', 'error');
         return;
     }
 
-    const blob = new Blob([record.html || ''], { type: 'text/html;charset=utf-8' });
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const dialog = document.getElementById('document_preview_dialog');
+    const frame = document.getElementById('document_preview_iframe');
+    const previewStatus = document.getElementById('document_preview_status');
+    const previewTitle = document.getElementById('document_preview_title');
+    const previewMeta = document.getElementById('document_preview_meta');
 
-    link.href = objectUrl;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    if (!dialog || !frame) {
+        documentSetStatus('The secure preview is not available in this page.', 'error');
+        return;
+    }
 
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
-    bookletSetStatus(
-        `Opened Strategic Assortment ${bookletFormatPeriod(record.period)} in a new tab.`,
-        'success'
+    const previewSequence = ++documentPreviewSequence;
+
+    frame.setAttribute('sandbox', 'allow-scripts allow-forms allow-popups allow-downloads');
+    frame.setAttribute('referrerpolicy', 'no-referrer');
+    frame.removeAttribute('src');
+    frame.srcdoc = '';
+
+    if (previewTitle) {
+        previewTitle.textContent = `${documentGetTypeLabel(record.type)} · ${record.market}`;
+    }
+    if (previewMeta) {
+        const salesLabel = record.salesDate
+            ? `Sales data ${documentFormatSalesDate(record.salesDate)}`
+            : 'Sales data not provided';
+        previewMeta.textContent = `${documentFormatPeriod(record.period)} · ${salesLabel} · ${record.fileName}`;
+    }
+    if (previewStatus) {
+        previewStatus.hidden = false;
+        previewStatus.dataset.state = 'info';
+        previewStatus.textContent = 'Loading secure preview…';
+    }
+
+    documentShowPreview();
+    documentSetStatus(
+        `Loading ${documentGetTypeLabel(record.type)} · ${record.market} · ${documentFormatPeriod(record.period)}…`,
+        'info'
     );
+
+    try {
+        const response = await fetch(record.contentUrl, {
+            method: 'GET',
+            headers: documentAuthHeaders()
+        });
+        if (!response.ok) throw await documentCreateApiError(response);
+
+        const html = await response.text();
+        if (previewSequence !== documentPreviewSequence) return;
+        frame.srcdoc = documentPreparePreviewHtml(html);
+        if (previewStatus) {
+            previewStatus.dataset.state = 'ready';
+            previewStatus.textContent = '';
+            previewStatus.hidden = true;
+        }
+        documentSetStatus(
+            `Opened ${documentGetTypeLabel(record.type)} · ${record.market} · ${documentFormatPeriod(record.period)}.`,
+            'success'
+        );
+    } catch (error) {
+        if (previewSequence !== documentPreviewSequence) return;
+        console.error('[Documents] Secure preview failed:', error);
+        const message = documentGetErrorMessage(error, 'The document could not be opened.');
+        if (previewStatus) {
+            previewStatus.hidden = false;
+            previewStatus.dataset.state = 'error';
+            previewStatus.textContent = message;
+        }
+        documentSetStatus(message, 'error');
+    }
 }
 
 /**
- * Renders the archive, optionally filtered by #booklet_archive_filter.
+ * Keeps the uploaded tool intact (including scripts) and makes links open in
+ * a new tab. Execution remains isolated by the iframe sandbox without
+ * `allow-same-origin`.
+ *
+ * @param {string} html
+ * @returns {string}
+ */
+function documentPreparePreviewHtml(html) {
+    const source = String(html || '');
+
+    try {
+        const parsed = new DOMParser().parseFromString(source, 'text/html');
+        let base = parsed.head.querySelector('base');
+        if (!base) {
+            base = parsed.createElement('base');
+            parsed.head.prepend(base);
+        }
+        base.target = '_blank';
+        return `<!doctype html>\n${parsed.documentElement.outerHTML}`;
+    } catch (_) {
+        return source;
+    }
+}
+
+/** Shows the in-page preview overlay. */
+function documentShowPreview() {
+    const dialog = document.getElementById('document_preview_dialog');
+    if (!dialog) return;
+
+    documentPreviewReturnFocus = document.activeElement;
+    dialog.hidden = false;
+    document.body.classList.add('document-preview-open');
+
+    if (typeof dialog.showModal === 'function') {
+        if (!dialog.open) dialog.showModal();
+    } else {
+        dialog.setAttribute('open', 'true');
+    }
+
+    document.getElementById('document_preview_close_button')?.focus();
+}
+
+/** Closes and clears the secure preview. */
+function documentClosePreview() {
+    const dialog = document.getElementById('document_preview_dialog');
+    if (!dialog) return;
+
+    if (typeof dialog.close === 'function' && dialog.open) {
+        dialog.close();
+    } else {
+        documentClearPreview();
+    }
+}
+
+/** Removes preview HTML and restores page scrolling. */
+function documentClearPreview() {
+    const dialog = document.getElementById('document_preview_dialog');
+    const frame = document.getElementById('document_preview_iframe');
+    documentPreviewSequence += 1;
+    if (frame) frame.srcdoc = '';
+    if (dialog) {
+        dialog.hidden = true;
+        dialog.removeAttribute('open');
+    }
+    document.body.classList.remove('document-preview-open');
+    if (documentPreviewReturnFocus && typeof documentPreviewReturnFocus.focus === 'function') {
+        documentPreviewReturnFocus.focus();
+    }
+    documentPreviewReturnFocus = null;
+}
+
+/**
+ * Renders the archive, optionally filtered by #document_archive_filter.
  *
  * @returns {void}
  */
-function bookletRenderArchive() {
-    const archiveList = document.getElementById('booklet_archive_list');
-    const countOutput = document.getElementById('booklet_archive_count');
-    const filterValue = document.getElementById('booklet_archive_filter')?.value || '';
+function documentRenderArchive() {
+    const archiveList = document.getElementById('document_archive_list');
+    const countOutput = document.getElementById('document_archive_count');
+    const filterValue = document.getElementById('document_archive_filter')?.value || '';
     if (!archiveList) return;
 
-    const visibleRecords = bookletRecords.filter(record => {
-        return !bookletIsValidPeriod(filterValue) || record.period === filterValue;
+    const selectedRecords = documentGetRecords();
+    const visibleRecords = selectedRecords.filter(record => {
+        return !documentIsValidPeriod(filterValue) || record.period === filterValue;
     });
 
     if (countOutput) {
         countOutput.textContent = `${visibleRecords.length} edition${visibleRecords.length === 1 ? '' : 's'}`;
         countOutput.setAttribute(
             'aria-label',
-            `${visibleRecords.length} booklet${visibleRecords.length === 1 ? '' : 's'}`
+            `${visibleRecords.length} document${visibleRecords.length === 1 ? '' : 's'}`
         );
     }
 
     if (visibleRecords.length === 0) {
+        const tool = documentGetTypeLabel();
+        const mark = documentTypeCatalog[documentSelectedType]?.mark || 'HTML';
+        const archiveUnavailable = !documentStorageReady && !documentBackendPending;
+        const emptyTitle = documentBackendPending
+            ? 'Backend pending'
+            : archiveUnavailable
+                ? 'Archive unavailable'
+                : `No ${tool} editions found`;
+        const emptyCopy = documentBackendPending
+            ? 'The frontend is ready. Editions will appear here after the central document API is installed.'
+            : archiveUnavailable
+                ? 'The central document archive could not be reached. Try again when the backend is available.'
+                : `Add the first ${tool} HTML edition for ${documentGetMarketLabel()}.`;
         archiveList.innerHTML = `
-            <li class="booklet-empty-state">
-                <span class="booklet-empty-icon" aria-hidden="true">SA</span>
+            <li class="document-empty-state">
+                <span class="document-empty-icon" aria-hidden="true">${documentEscapeHtml(mark)}</span>
                 <div>
-                    <strong>No booklets found</strong>
-                    <p>${bookletIsValidPeriod(filterValue)
-                        ? `No Strategic Assortment booklet is stored for ${bookletEscapeHtml(bookletFormatPeriod(filterValue))}.`
-                        : 'Select a month and add the first Strategic Assortment HTML booklet.'}</p>
+                    <strong>${documentEscapeHtml(emptyTitle)}</strong>
+                    <p>${documentBackendPending || archiveUnavailable
+                        ? documentEscapeHtml(emptyCopy)
+                        : documentIsValidPeriod(filterValue)
+                            ? `No ${documentEscapeHtml(tool)} edition is stored for ${documentEscapeHtml(documentGetMarketLabel())} and ${documentEscapeHtml(documentFormatPeriod(filterValue))}.`
+                            : documentEscapeHtml(emptyCopy)}</p>
                 </div>
             </li>`;
         return;
     }
 
     archiveList.innerHTML = visibleRecords.map(record => {
-        const safeId = bookletEscapeHtml(record.id);
-        const safePeriod = bookletEscapeHtml(bookletFormatPeriod(record.period));
-        const safeFileName = bookletEscapeHtml(record.fileName || 'strategic-assortment.html');
-        const safeSize = bookletEscapeHtml(bookletFormatBytes(record.size || 0));
-        const safeUpdated = bookletEscapeHtml(bookletFormatDate(record.updatedAt || record.createdAt));
+        const safeId = documentEscapeHtml(record.id);
+        const safePeriod = documentEscapeHtml(documentFormatPeriod(record.period));
+        const safeFileName = documentEscapeHtml(
+            record.fileName || documentTypeCatalog[record.type]?.fileName || 'document.html'
+        );
+        const safeSize = documentEscapeHtml(documentFormatBytes(record.size || 0));
+        const safeUpdated = documentEscapeHtml(documentFormatDate(record.updatedAt || record.createdAt));
+        const safeSalesDate = documentEscapeHtml(
+            record.salesDate ? documentFormatSalesDate(record.salesDate) : 'Not provided'
+        );
+        const safeType = documentEscapeHtml(documentGetTypeLabel(record.type));
+        const safeMarket = documentEscapeHtml(record.market);
+        const safeMark = documentEscapeHtml(documentTypeCatalog[record.type]?.mark || 'HTML');
 
         return `
-            <li class="booklet-archive-item booklet-entry">
-                <div class="booklet-file-mark booklet-record-icon" aria-hidden="true">HTML</div>
-                <div class="booklet-archive-copy booklet-record-copy">
-                    <span class="booklet-type-label">Strategic Assortment</span>
-                    <h3 class="booklet-record-period">${safePeriod}</h3>
-                    <p class="booklet-record-name" title="${safeFileName}">${safeFileName}</p>
+            <li class="document-archive-item document-entry">
+                <div class="document-file-mark document-record-icon" aria-hidden="true">${safeMark}</div>
+                <div class="document-archive-copy document-record-copy">
+                    <span class="document-type-label">${safeMarket} · ${safeType}</span>
+                    <h3 class="document-record-period">${safePeriod}</h3>
+                    <p class="document-record-name" title="${safeFileName}">${safeFileName}</p>
+                    <p class="document-record-sales">Sales data: ${safeSalesDate}</p>
                 </div>
-                <div class="booklet-file-meta booklet-record-meta">
+                <div class="document-file-meta document-record-meta">
                     <span>${safeSize}</span>
                     <span>Updated ${safeUpdated}</span>
                 </div>
-                <div class="booklet-archive-actions booklet-record-actions">
+                <div class="document-archive-actions document-record-actions">
                     <button type="button"
-                            class="std_btn btn_prime booklet-open-button booklet-record-action"
-                            data-booklet-action="open"
-                            data-booklet-id="${safeId}">
+                            class="std_btn btn_prime document-open-button document-record-action"
+                            data-document-action="open"
+                            data-document-id="${safeId}">
                         Open
                     </button>
                     <button type="button"
-                            class="std_btn booklet-delete-button booklet-record-action booklet-record-action--delete"
-                            data-booklet-action="delete"
-                            data-booklet-id="${safeId}"
-                            aria-label="Delete Strategic Assortment ${safePeriod}">
+                            class="std_btn document-delete-button document-record-action document-record-action--delete"
+                            data-document-action="delete"
+                            data-document-id="${safeId}"
+                            aria-label="Delete ${safeType} ${safeMarket} ${safePeriod}">
                         Delete
                     </button>
                 </div>
@@ -1962,22 +2550,72 @@ function bookletRenderArchive() {
  * @param {'info'|'success'|'error'} [state='info']
  * @returns {void}
  */
-function bookletSetStatus(message, state = 'info') {
-    const status = document.getElementById('booklet_status');
+function documentSetStatus(message, state = 'info') {
+    const status = document.getElementById('document_status');
     if (!status) return;
     status.textContent = message;
     status.dataset.state = state;
 }
 
 /**
- * Creates the deterministic one-record-per-board-and-period key.
+ * Returns a safe UI message for network and API failures.
  *
- * @param {string} boardId
- * @param {string} period
+ * @param {*} error
+ * @param {string} fallback
  * @returns {string}
  */
-function bookletCreateRecordId(boardId, period) {
-    return `${boardId}::${period}`;
+function documentGetErrorMessage(error, fallback) {
+    const message = typeof error?.message === 'string' ? error.message.trim() : '';
+    return message || fallback;
+}
+
+/**
+ * Keeps the frontend fully usable when the generic document API has not yet
+ * been installed. No local-storage fallback is used.
+ *
+ * @param {*} error
+ * @param {string} fallback
+ * @returns {void}
+ */
+function documentHandleLibraryUnavailable(error, fallback) {
+    const pending = error?.status === 404 || error?.status === 405;
+    documentStorageReady = false;
+    documentBackendPending = pending;
+    documentLoadSequence += 1;
+
+    if (pending) documentRecords = [];
+
+    documentSetStorageBadge(pending ? 'pending' : 'error');
+    documentRenderToolStatus();
+    documentRenderArchive();
+    documentUpdateUploadState();
+
+    if (pending) {
+        documentSetStatus(
+            'Frontend ready · the central CH/AT document API will be connected in the backend step.',
+            'info'
+        );
+        return;
+    }
+
+    console.error('[Documents] Shared library unavailable:', error);
+    documentSetStatus(documentGetErrorMessage(error, fallback), 'error');
+}
+
+/** Updates the visible central-storage state badge. */
+function documentSetStorageBadge(state) {
+    const badge = document.querySelector('.document-storage-badge');
+    if (!badge) return;
+
+    const labels = {
+        loading: 'Checking server archive',
+        ready: 'Shared server archive',
+        pending: 'Backend pending',
+        error: 'Archive unavailable'
+    };
+
+    badge.textContent = labels[state] || labels.error;
+    badge.dataset.state = state;
 }
 
 /**
@@ -1986,11 +2624,31 @@ function bookletCreateRecordId(boardId, period) {
  * @param {string} value
  * @returns {boolean}
  */
-function bookletIsValidPeriod(value) {
+function documentIsValidPeriod(value) {
     const match = /^(\d{4})-(\d{2})$/.exec(String(value || ''));
     if (!match) return false;
     const month = Number(match[2]);
     return month >= 1 && month <= 12;
+}
+
+/** Validates a real calendar date in YYYY-MM-DD format. */
+function documentIsValidDate(value) {
+    const normalized = String(value || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return false;
+    const date = new Date(`${normalized}T00:00:00Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === normalized;
+}
+
+/** Formats a sales-data date without local-timezone day shifts. */
+function documentFormatSalesDate(value) {
+    if (!documentIsValidDate(value)) return 'Not provided';
+    const [year, month, day] = value.split('-').map(Number);
+    return new Intl.DateTimeFormat(document.documentElement.lang || 'en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC'
+    }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 /**
@@ -1999,8 +2657,8 @@ function bookletIsValidPeriod(value) {
  * @param {string} period
  * @returns {string}
  */
-function bookletFormatPeriod(period) {
-    if (!bookletIsValidPeriod(period)) return String(period || 'Unknown period');
+function documentFormatPeriod(period) {
+    if (!documentIsValidPeriod(period)) return String(period || 'Unknown period');
     const [year, month] = period.split('-').map(Number);
     const locale = document.documentElement.lang || 'en-GB';
     return new Intl.DateTimeFormat(locale, {
@@ -2016,7 +2674,7 @@ function bookletFormatPeriod(period) {
  * @param {number} bytes
  * @returns {string}
  */
-function bookletFormatBytes(bytes) {
+function documentFormatBytes(bytes) {
     const value = Number(bytes) || 0;
     if (value < 1024) return `${value} B`;
     if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
@@ -2029,7 +2687,7 @@ function bookletFormatBytes(bytes) {
  * @param {string} isoDate
  * @returns {string}
  */
-function bookletFormatDate(isoDate) {
+function documentFormatDate(isoDate) {
     const date = new Date(isoDate);
     if (Number.isNaN(date.getTime())) return 'unknown';
     return new Intl.DateTimeFormat(document.documentElement.lang || 'en-GB', {
@@ -2045,7 +2703,7 @@ function bookletFormatDate(isoDate) {
  * @param {*} value
  * @returns {string}
  */
-function bookletEscapeHtml(value) {
+function documentEscapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, character => ({
         '&': '&amp;',
         '<': '&lt;',

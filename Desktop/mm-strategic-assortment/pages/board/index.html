@@ -96,15 +96,15 @@
 
             <div class="board-toolbar-actions">
                 <button
-                    id="booklet-toggle-btn"
+                    id="document-toggle-btn"
                     class="std_btn board-action-button board-action-button--secondary"
                     type="button"
-                    aria-controls="booklet_hub"
+                    aria-controls="document_hub"
                     aria-expanded="false"
-                    onclick="toggleBookletHub()"
+                    onclick="toggleDocumentHub()"
                 >
                     <span aria-hidden="true">▣</span>
-                    <span>Booklets</span>
+                    <span>Tool Library</span>
                 </button>
 
                 <button class="std_btn btn_prime board-action-button" type="button" onclick="openCreateTaskDialog('to-do')">
@@ -131,77 +131,325 @@
             </div>
         </section>
 
-        <section id="booklet_hub" class="booklet-hub" aria-labelledby="booklet_hub_title" hidden>
-            <header class="booklet-hub__header">
+        <section id="document_hub" class="document-hub" aria-labelledby="document_hub_title" hidden>
+            <header class="document-hub__header">
                 <div>
                     <p class="board-section-kicker">Document library</p>
-                    <h2 id="booklet_hub_title">Strategic Assortment Booklets</h2>
-                    <p>Choose the edition month first, then drop the finished HTML booklet here.</p>
+                    <h2 id="document_hub_title">Assortment Tools</h2>
+                    <p>
+                        Manage the four monthly tools for Switzerland and Austria, including their
+                        edition, sales-data date and latest update.
+                    </p>
                 </div>
-                <span class="booklet-storage-badge">Local browser archive</span>
+                <span class="document-storage-badge">Shared server archive</span>
             </header>
 
-            <div class="booklet-layout booklet-grid">
-                <section class="booklet-upload-card booklet-upload-panel" aria-labelledby="booklet_upload_title">
-                    <div class="booklet-upload-heading booklet-panel-heading">
-                        <span class="booklet-step">01</span>
-                        <div>
-                            <h3 id="booklet_upload_title">Add an edition</h3>
-                            <p>HTML or HTM · maximum 10 MB</p>
-                        </div>
+            <div class="document-navigation">
+                <section class="document-market-section" aria-labelledby="document_market_title">
+                    <div class="document-navigation__heading">
+                        <p class="board-section-kicker">01 · Market</p>
+                        <h3 id="document_market_title">Choose a country</h3>
                     </div>
 
-                    <div class="booklet-fields">
-                        <div class="booklet-field">
-                            <label for="booklet_type">Document</label>
-                            <select id="booklet_type">
-                                <option value="strategic-assortment">Strategic Assortment</option>
-                            </select>
-                        </div>
-                        <div class="booklet-field">
-                            <label for="booklet_period">Edition month</label>
-                            <input id="booklet_period" type="month">
-                        </div>
-                    </div>
-
-                    <div id="booklet_dropzone" class="booklet-dropzone" role="button" tabindex="0"
-                         aria-describedby="booklet_selected_file">
-                        <input id="booklet_file_input" type="file" accept=".html,.htm,text/html" hidden>
-                        <span class="booklet-dropzone-icon" aria-hidden="true">↥</span>
-                        <strong>Drop HTML booklet here</strong>
-                        <span>or click to select a file</span>
-                        <span id="booklet_selected_file" class="booklet-file-name">No HTML file selected</span>
-                    </div>
-
-                    <div class="booklet-actions booklet-upload-footer">
-                        <button id="booklet_upload_button" class="std_btn btn_prime" type="button" disabled>
-                            Save edition
+                    <div class="document-market-tabs" role="tablist" aria-label="Country">
+                        <button
+                            id="document_market_ch"
+                            class="document-market-tab is-active"
+                            type="button"
+                            role="tab"
+                            aria-selected="true"
+                            aria-controls="document_workspace"
+                            data-document-market="CH"
+                        >
+                            <img
+                                class="document-market-flag"
+                                src="../../assets/icons/flag-ch.svg.webp"
+                                alt=""
+                            >
+                            <span class="document-market-tab__copy">
+                                <strong>Switzerland</strong>
+                                <span>CH archive</span>
+                            </span>
+                            <span class="document-market-tab__code" aria-hidden="true">CH</span>
                         </button>
-                        <button id="booklet_reset_btn" class="std_btn btn_third" type="button">
-                            Reset
+
+                        <button
+                            id="document_market_at"
+                            class="document-market-tab"
+                            type="button"
+                            role="tab"
+                            aria-selected="false"
+                            aria-controls="document_workspace"
+                            tabindex="-1"
+                            data-document-market="AT"
+                        >
+                            <img
+                                class="document-market-flag"
+                                src="../../assets/icons/flag-at.svg.webp"
+                                alt=""
+                            >
+                            <span class="document-market-tab__copy">
+                                <strong>Austria</strong>
+                                <span>AT archive</span>
+                            </span>
+                            <span class="document-market-tab__code" aria-hidden="true">AT</span>
                         </button>
                     </div>
-                    <p id="booklet_status" class="booklet-status" role="status" aria-live="polite"></p>
                 </section>
 
-                <section class="booklet-archive" aria-labelledby="booklet_archive_title">
-                    <header class="booklet-archive__header booklet-archive-heading">
-                        <div>
-                            <p class="board-section-kicker">Archive</p>
-                            <h3 id="booklet_archive_title">Available editions</h3>
-                        </div>
-                        <span id="booklet_archive_count" class="booklet-count">0 editions</span>
-                    </header>
-
-                    <div class="booklet-filter booklet-archive-tools">
-                        <label for="booklet_archive_filter">Filter by month</label>
-                        <input id="booklet_archive_filter" type="month">
-                        <button id="booklet_filter_clear_button" type="button">Show all</button>
+                <section class="document-tool-section" aria-labelledby="document_tool_title">
+                    <div class="document-navigation__heading">
+                        <p class="board-section-kicker">02 · Tool</p>
+                        <h3 id="document_tool_title">Choose a tool</h3>
                     </div>
 
-                    <ul id="booklet_archive_list" class="booklet-archive-list" aria-live="polite"></ul>
+                    <div class="document-tool-grid" role="tablist" aria-label="Assortment tool">
+                        <button
+                            id="document_tool_booklet"
+                            class="document-tool-card is-active"
+                            type="button"
+                            role="tab"
+                            aria-selected="true"
+                            aria-controls="document_workspace"
+                            data-document-type="booklet"
+                            data-document-tool-label="Booklet"
+                        >
+                            <span class="document-tool-card__top">
+                                <span class="document-tool-card__mark" aria-hidden="true">BK</span>
+                                <span class="document-tool-card__name">Booklet</span>
+                                <span id="document_tool_booklet_status" class="document-tool-card__status">
+                                    No edition
+                                </span>
+                            </span>
+                            <span class="document-tool-card__metrics">
+                                <span class="document-tool-card__metric">
+                                    <span>Latest edition</span>
+                                    <strong id="document_tool_booklet_latest">—</strong>
+                                </span>
+                                <span class="document-tool-card__metric">
+                                    <span>Sales data</span>
+                                    <strong id="document_tool_booklet_sales_date">—</strong>
+                                </span>
+                                <span class="document-tool-card__metric">
+                                    <span>Updated</span>
+                                    <strong id="document_tool_booklet_updated">—</strong>
+                                </span>
+                            </span>
+                            <span id="document_tool_booklet_count" class="document-tool-card__count">
+                                0 editions
+                            </span>
+                        </button>
+
+                        <button
+                            id="document_tool_review_model"
+                            class="document-tool-card"
+                            type="button"
+                            role="tab"
+                            aria-selected="false"
+                            aria-controls="document_workspace"
+                            tabindex="-1"
+                            data-document-type="review-model"
+                            data-document-tool-label="Review Model"
+                        >
+                            <span class="document-tool-card__top">
+                                <span class="document-tool-card__mark" aria-hidden="true">RM</span>
+                                <span class="document-tool-card__name">Review Model</span>
+                                <span id="document_tool_review_model_status" class="document-tool-card__status">
+                                    No edition
+                                </span>
+                            </span>
+                            <span class="document-tool-card__metrics">
+                                <span class="document-tool-card__metric">
+                                    <span>Latest edition</span>
+                                    <strong id="document_tool_review_model_latest">—</strong>
+                                </span>
+                                <span class="document-tool-card__metric">
+                                    <span>Sales data</span>
+                                    <strong id="document_tool_review_model_sales_date">—</strong>
+                                </span>
+                                <span class="document-tool-card__metric">
+                                    <span>Updated</span>
+                                    <strong id="document_tool_review_model_updated">—</strong>
+                                </span>
+                            </span>
+                            <span id="document_tool_review_model_count" class="document-tool-card__count">
+                                0 editions
+                            </span>
+                        </button>
+
+                        <button
+                            id="document_tool_tracking_dashboard"
+                            class="document-tool-card"
+                            type="button"
+                            role="tab"
+                            aria-selected="false"
+                            aria-controls="document_workspace"
+                            tabindex="-1"
+                            data-document-type="tracking-dashboard"
+                            data-document-tool-label="Tracking Dashboard"
+                        >
+                            <span class="document-tool-card__top">
+                                <span class="document-tool-card__mark" aria-hidden="true">TD</span>
+                                <span class="document-tool-card__name">Tracking Dashboard</span>
+                                <span id="document_tool_tracking_dashboard_status" class="document-tool-card__status">
+                                    No edition
+                                </span>
+                            </span>
+                            <span class="document-tool-card__metrics">
+                                <span class="document-tool-card__metric">
+                                    <span>Latest edition</span>
+                                    <strong id="document_tool_tracking_dashboard_latest">—</strong>
+                                </span>
+                                <span class="document-tool-card__metric">
+                                    <span>Sales data</span>
+                                    <strong id="document_tool_tracking_dashboard_sales_date">—</strong>
+                                </span>
+                                <span class="document-tool-card__metric">
+                                    <span>Updated</span>
+                                    <strong id="document_tool_tracking_dashboard_updated">—</strong>
+                                </span>
+                            </span>
+                            <span id="document_tool_tracking_dashboard_count" class="document-tool-card__count">
+                                0 editions
+                            </span>
+                        </button>
+
+                        <button
+                            id="document_tool_online"
+                            class="document-tool-card"
+                            type="button"
+                            role="tab"
+                            aria-selected="false"
+                            aria-controls="document_workspace"
+                            tabindex="-1"
+                            data-document-type="online"
+                            data-document-tool-label="Online"
+                        >
+                            <span class="document-tool-card__top">
+                                <span class="document-tool-card__mark" aria-hidden="true">ON</span>
+                                <span class="document-tool-card__name">Online</span>
+                                <span id="document_tool_online_status" class="document-tool-card__status">
+                                    No edition
+                                </span>
+                            </span>
+                            <span class="document-tool-card__metrics">
+                                <span class="document-tool-card__metric">
+                                    <span>Latest edition</span>
+                                    <strong id="document_tool_online_latest">—</strong>
+                                </span>
+                                <span class="document-tool-card__metric">
+                                    <span>Sales data</span>
+                                    <strong id="document_tool_online_sales_date">—</strong>
+                                </span>
+                                <span class="document-tool-card__metric">
+                                    <span>Updated</span>
+                                    <strong id="document_tool_online_updated">—</strong>
+                                </span>
+                            </span>
+                            <span id="document_tool_online_count" class="document-tool-card__count">
+                                0 editions
+                            </span>
+                        </button>
+                    </div>
                 </section>
             </div>
+
+            <section id="document_workspace" class="document-workspace" aria-labelledby="document_workspace_title">
+                <header class="document-workspace__header">
+                    <div class="document-selection">
+                        <img
+                            id="document_selected_flag"
+                            class="document-selection__flag"
+                            src="../../assets/icons/flag-ch.svg.webp"
+                            alt=""
+                        >
+                        <div>
+                            <p class="board-section-kicker">Selected workspace</p>
+                            <h3 id="document_workspace_title">
+                                <span id="document_selected_tool">Booklet</span>
+                                <span aria-hidden="true">·</span>
+                                <span id="document_selected_market">Switzerland</span>
+                            </h3>
+                            <p id="document_selection_summary">
+                                Add a monthly HTML edition and record the sales-data date it contains.
+                            </p>
+                        </div>
+                    </div>
+                    <span id="document_selection_badge" class="document-selection__badge">CH · Booklet</span>
+                </header>
+
+                <div class="document-layout">
+                    <section class="document-upload-panel" aria-labelledby="document_upload_title">
+                        <div class="document-panel-heading">
+                            <span class="document-step">03</span>
+                            <div>
+                                <h3 id="document_upload_title">Add an edition</h3>
+                                <p>HTML or HTM · maximum 10 MB · one file per market, tool and month</p>
+                            </div>
+                        </div>
+
+                        <div class="document-fields">
+                            <div class="document-field">
+                                <label for="document_period">Edition month</label>
+                                <input id="document_period" type="month" required>
+                            </div>
+                            <div class="document-field">
+                                <label for="document_sales_date">Sales data as of</label>
+                                <input id="document_sales_date" type="date" required>
+                            </div>
+                        </div>
+
+                        <div
+                            id="document_dropzone"
+                            class="document-dropzone"
+                            role="button"
+                            tabindex="0"
+                            aria-describedby="document_selected_file"
+                        >
+                            <input
+                                id="document_file_input"
+                                type="file"
+                                accept=".html,.htm,text/html"
+                                hidden
+                            >
+                            <span class="document-dropzone__icon" aria-hidden="true">↥</span>
+                            <strong>Drop the selected tool here</strong>
+                            <span>or click to select an HTML file</span>
+                            <span id="document_selected_file" class="document-file-name">
+                                No HTML file selected
+                            </span>
+                        </div>
+
+                        <div class="document-actions">
+                            <button id="document_upload_button" class="std_btn btn_prime" type="button" disabled>
+                                Save edition
+                            </button>
+                            <button id="document_reset_btn" class="std_btn btn_third" type="button">
+                                Reset
+                            </button>
+                        </div>
+                        <p id="document_status" class="document-status" role="status" aria-live="polite"></p>
+                    </section>
+
+                    <section class="document-archive" aria-labelledby="document_archive_title">
+                        <header class="document-archive__header">
+                            <div>
+                                <p class="board-section-kicker">Archive</p>
+                                <h3 id="document_archive_title">Available editions</h3>
+                            </div>
+                            <span id="document_archive_count" class="document-count">0 editions</span>
+                        </header>
+
+                        <div class="document-filter">
+                            <label for="document_archive_filter">Filter by month</label>
+                            <input id="document_archive_filter" type="month">
+                            <button id="document_filter_clear_button" type="button">Show all</button>
+                        </div>
+
+                        <ul id="document_archive_list" class="document-archive-list" aria-live="polite"></ul>
+                    </section>
+                </div>
+            </section>
         </section>
 
         <section class="kanban-workspace kanban-section" aria-labelledby="kanban_title">
@@ -514,6 +762,47 @@
             </article>
         </section>
     </main>
+
+    <section
+        id="document_preview_dialog"
+        class="document-preview-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="document_preview_title"
+        hidden
+    >
+        <div class="document-preview-dialog__backdrop" data-document-preview-close aria-hidden="true"></div>
+        <div class="document-preview-dialog__panel" role="document">
+            <header class="document-preview-dialog__header">
+                <div>
+                    <p class="board-section-kicker">Secure preview</p>
+                    <h2 id="document_preview_title">Tool edition</h2>
+                    <p id="document_preview_meta" class="document-preview-dialog__meta"></p>
+                </div>
+                <button
+                    id="document_preview_close_button"
+                    class="document-preview-dialog__close"
+                    type="button"
+                    data-document-preview-close
+                    aria-label="Close document preview"
+                >
+                    <img src="../../assets/icons/close_white.svg" alt="">
+                </button>
+            </header>
+            <div class="document-preview-dialog__body">
+                <p id="document_preview_status" class="document-preview-dialog__status" role="status" aria-live="polite">
+                    Loading preview…
+                </p>
+                <iframe
+                    id="document_preview_iframe"
+                    title="HTML tool preview"
+                    sandbox="allow-scripts allow-forms allow-popups allow-downloads"
+                    referrerpolicy="no-referrer"
+                ></iframe>
+            </div>
+        </div>
+    </section>
+
     <footer class="main_footer board-footer w_full">
         <nav class="d_flex_cs_gl" aria-label="Legal information">
             <a href="../privacy/index.html" class="link">Privacy Policy</a>
