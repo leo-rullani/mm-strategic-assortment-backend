@@ -2,20 +2,25 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MM Strategic Assortment – Boards</title>
 
-    <link rel="stylesheet" href="../../shared/css/variables.css">
-    <link rel="stylesheet" href="../../shared/css/standard.css">
-    <link rel="stylesheet" href="../../shared/css/fonts.css">
-    <link rel="stylesheet" href="../../shared/css/assets.css">
-    <link rel="stylesheet" href="../../shared/css/form.css">
-    <link rel="stylesheet" href="../../shared/css/header_footer.css">
-    <link rel="stylesheet" href="./boards.css">
-    <link rel="stylesheet" href="../../shared/css/mm_theme.css">
+    <link rel="stylesheet" href="../../shared/css/variables.css" />
+    <link rel="stylesheet" href="../../shared/css/standard.css" />
+    <link rel="stylesheet" href="../../shared/css/fonts.css" />
+    <link rel="stylesheet" href="../../shared/css/assets.css" />
+    <link rel="stylesheet" href="../../shared/css/form.css" />
+    <link rel="stylesheet" href="../../shared/css/header_footer.css" />
+    <link rel="stylesheet" href="../../shared/css/mm_theme.css" />
+    <!-- Important: page styles come last so they can override the shared theme. -->
+    <link rel="stylesheet" href="./boards.css" />
 
-    <link rel="icon" href="../../assets/icons/mm-flow-mark.svg" type="image/svg+xml">
+    <link
+        rel="icon"
+        href="../../assets/icons/media-markt-logo-png_seeklogo-90300.png"
+        type="image/png"
+    />
 
     <script src="../../shared/js/config.js"></script>
     <script src="../../shared/js/ui_helper.js"></script>
@@ -23,171 +28,401 @@
     <script src="../../shared/js/header.js"></script>
     <script src="./boards.js"></script>
     <script src="../../shared/js/board_settings.js"></script>
-
 </head>
 
-<body onload="setHeader(); getAndRenderBoardList()">
-    <header class="main_header w_full"><img onclick="goDashboard()" src="../../assets/icons/mm-flow-logo.svg" alt="MM Flow – Strategic Assortment" height="48">
-        <div id="head_content_right" class="d_flex_cc_gm head_content_right"></div>
+<body class="boards-page" onload="setHeader(); getAndRenderBoardList()">
+    <header class="main_header boards-header w_full">
+        <button
+            class="boards-brand"
+            type="button"
+            onclick="window.location.href='../dashboard/index.html'"
+            aria-label="Open MM Strategic Assortment dashboard"
+        >
+            <span class="boards-brand-crop" aria-hidden="true">
+                <img
+                    class="boards-brand-image"
+                    src="../../assets/icons/media-markt-logo-png_seeklogo-90300.png"
+                    alt=""
+                />
+            </span>
+        </button>
+
+        <div
+            id="head_content_right"
+            class="d_flex_cc_gm head_content_right"
+        ></div>
     </header>
-    <main class="w_full d_flex_sc_gl">
-        <section class="w_full d_flex_cs_gl f_d_c">
-            <nav class="font_sec_color">
-                <a class="link_secondary" href="../dashboard/">Dashboard</a>
-                /
-                <a class="link_secondary" href="./index.html">Boards</a>
-            </nav>
-            <header class="d_flex_sc_gl w_full d_sb">
-                <h1 class="font_white_color">Assortment Boards</h1>
-                <form class="searchbar">
-                    <div class="form_group_w_icon_wo_label w_full">
-                        <img src="../../assets/icons/search_yellow.svg" alt="Icon">
-                        <input onkeyup="renderBoardList()" placeholder="Search" type="text" id="board_search" required>
-                        <label for="board_search" class="d_none">Full name</label>
+
+    <main class="boards-main w_full">
+        <section class="boards-hero" aria-labelledby="boards_page_title">
+            <div class="boards-hero-copy">
+                <nav class="boards-breadcrumb" aria-label="Breadcrumb">
+                    <a href="../dashboard/index.html">Dashboard</a>
+                    <span aria-hidden="true">/</span>
+                    <span aria-current="page">Boards</span>
+                </nav>
+
+                <p class="boards-eyebrow">Workspace · CH / AT</p>
+                <h1 class="boards-title" id="boards_page_title">
+                    Assortment Boards
+                </h1>
+                <p class="boards-subtitle">
+                    Organise assortment decisions, ownership and priorities in one shared workspace.
+                </p>
+            </div>
+
+            <div class="boards-live-status" aria-label="Workspace status">
+                <span class="boards-live-dot" aria-hidden="true"></span>
+                <span>Workspace live</span>
+            </div>
+        </section>
+
+        <section class="boards-toolbar" aria-label="Board controls">
+            <div class="boards-toolbar-copy">
+                <p class="boards-section-kicker">Your workspace</p>
+                <h2>Find or create a board</h2>
+                <p>
+                    <span id="board_result_count">Loading…</span>
+                </p>
+            </div>
+
+            <form
+                class="searchbar boards-search"
+                role="search"
+                onsubmit="event.preventDefault()"
+            >
+                <div class="form_group_w_icon_wo_label w_full">
+                    <img src="../../assets/icons/search_yellow.svg" alt="" />
+                    <input
+                        oninput="renderBoardList()"
+                        placeholder="Search boards"
+                        type="search"
+                        id="board_search"
+                        aria-label="Search boards"
+                    />
+                    <label for="board_search" class="d_none">Search boards</label>
+                </div>
+            </form>
+
+            <button
+                onclick="openBoardCreateDialog()"
+                class="std_btn btn_prime boards-create-button add_btn"
+                type="button"
+            >
+                <img src="../../assets/icons/add_black.svg" alt="" />
+                <span>Create board</span>
+            </button>
+        </section>
+
+        <section class="boards-list-section" aria-labelledby="board_list_title">
+            <header class="boards-list-heading">
+                <div>
+                    <p class="boards-section-kicker">Operational overview</p>
+                    <h2 id="board_list_title">Boards</h2>
+                </div>
+                <span class="boards-list-label">Live data</span>
+            </header>
+
+            <ul
+                id="board_list"
+                class="board_list boards-grid"
+                aria-live="polite"
+                aria-busy="true"
+            >
+                <li class="boards-loading-state">Loading boards…</li>
+            </ul>
+        </section>
+    </main>
+
+    <section
+        onmousedown="toggleOpenId('dialog_wrapper'); deleteLastingToast()"
+        open="false"
+        current-dialog="board_settings"
+        onclick="stopProp(event)"
+        id="dialog_wrapper"
+        class="dialog_wrapper boards-dialog-wrapper"
+    >
+        <form
+            onmousedown="stopProp(event)"
+            dialog-type="board_create"
+            onsubmit="boardCreateSubmit(event)"
+            class="current_dialog boards-dialog std_form w_full"
+            onclick="stopProp(event)"
+            novalidate
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create_board_dialog_title"
+        >
+            <header class="boards-dialog-header card_header_w_btn">
+                <div>
+                    <p class="boards-section-kicker">New workspace</p>
+                    <h2 id="create_board_dialog_title">Create board</h2>
+                    <p>Give the board a clear title and invite the people who need access.</p>
+                </div>
+
+                <button
+                    type="button"
+                    onclick="toggleOpenId('dialog_wrapper'); stopProp(event); deleteLastingToast()"
+                    class="close_btn boards-close-button"
+                    aria-label="Close create board dialog"
+                >
+                    <img src="../../assets/icons/close_white.svg" alt="" />
+                </button>
+            </header>
+
+            <div
+                error="false"
+                id="board_title_input_group"
+                class="form_group_wo_icon_w_label boards-field"
+            >
+                <label class="label_required" for="board_title_input">Board title</label>
+                <input
+                    onblur="validateBoardTitle(this)"
+                    value=""
+                    class="w_full"
+                    placeholder="e.g. Small Domestic Appliances"
+                    type="text"
+                    id="board_title_input"
+                    maxlength="63"
+                    required
+                />
+                <p class="error_label">Title must be between 3 and 63 characters long.</p>
+            </div>
+
+            <section class="boards-dialog-section">
+                <div class="boards-dialog-section-heading">
+                    <div>
+                        <p class="boards-section-kicker">Collaboration</p>
+                        <h3>Add members</h3>
+                    </div>
+                    <p>Add the email addresses of the people who should collaborate on this board.</p>
+                </div>
+
+                <div
+                    onclick="stopProp(event)"
+                    error="false"
+                    id="create_board_email_input_group"
+                    class="form_group_w_icon_wo_label w_full form_group_invite boards-invite-field"
+                >
+                    <input
+                        id="create_board_email_input"
+                        type="email"
+                        oninput="resetMailError()"
+                        required
+                    />
+                    <label for="create_board_email_input">Email address</label>
+                    <button
+                        type="button"
+                        onclick="boardCreateInviteMember()"
+                        class="std_btn btn_prime boards-inline-button"
+                    >
+                        Add
+                    </button>
+                    <p class="error_label" id="create_board_email_error_label">
+                        Please enter a valid email address.
+                    </p>
+                </div>
+            </section>
+
+            <div class="boards-divider" aria-hidden="true"></div>
+
+            <section class="boards-members-section">
+                <div class="boards-members-heading">
+                    <h3>Added members</h3>
+                    <span>Optional</span>
+                </div>
+                <ul id="create_board_member_list" class="member_list boards-member-list">
+                    <li class="boards-member-empty">No members added yet.</li>
+                </ul>
+            </section>
+
+            <footer class="boards-dialog-actions">
+                <button
+                    type="button"
+                    onclick="cancelCreateBoard(); stopProp(event)"
+                    class="std_btn btn_third boards-secondary-button"
+                >
+                    Cancel
+                </button>
+                <button
+                    type="submit"
+                    class="std_btn btn_prime boards-primary-button"
+                >
+                    Create board
+                    <span aria-hidden="true">↗</span>
+                </button>
+            </footer>
+        </form>
+
+        <section
+            onmousedown="stopProp(event)"
+            dialog-type="board_settings"
+            class="current_dialog boards-dialog std_form w_full"
+            onclick="stopProp(event)"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="board_settings_dialog_title"
+        >
+            <header class="boards-dialog-header card_header_w_btn">
+                <div>
+                    <p class="boards-section-kicker">Configuration</p>
+                    <h2 id="board_settings_dialog_title">Board settings</h2>
+                    <p>Update the title, manage members or remove the board.</p>
+                </div>
+
+                <button
+                    type="button"
+                    onclick="toggleOpenId('dialog_wrapper'); stopProp(event); deleteLastingToast()"
+                    class="close_btn boards-close-button"
+                    aria-label="Close board settings dialog"
+                >
+                    <img src="../../assets/icons/close_white.svg" alt="" />
+                </button>
+            </header>
+
+            <article edit="false" class="boards-settings-title" id="board_settings_title_group">
+                <form onsubmit="event.preventDefault(); setNewBoardTitle()">
+                    <div
+                        error="false"
+                        id="board_settings_title_input_group"
+                        class="form_group_wo_icon_w_label boards-field"
+                    >
+                        <label class="label_required" for="board_settings_title_input">Board title</label>
+
+                        <div class="checkbox_input_group w_full">
+                            <input
+                                onblur="validateBoardTitle(this)"
+                                value=""
+                                class="w_full"
+                                placeholder="Name your board"
+                                type="text"
+                                id="board_settings_title_input"
+                                maxlength="63"
+                                required
+                            />
+                            <div class="checkbox_wrapper">
+                                <button
+                                    type="button"
+                                    onclick="setNewBoardTitle()"
+                                    class="std_btn confirm_btn boards-confirm-button"
+                                    aria-label="Save new board title"
+                                >
+                                    <img src="../../assets/icons/check_yellow.svg" alt="" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onclick="toggleBoardTitleEdit()"
+                                    class="std_btn confirm_btn boards-confirm-button"
+                                    aria-label="Cancel title editing"
+                                >
+                                    <img src="../../assets/icons/close_yellow.svg" alt="" />
+                                </button>
+                            </div>
+                        </div>
+
+                        <p class="error_label">Title must be between 3 and 63 characters long.</p>
                     </div>
                 </form>
 
-                <button onclick="openBoardCreateDialog()" class="std_btn btn_prime d_flex_sc_gs add_btn">
-                    <img src="../../assets/icons/add_black.svg" alt="">
-                    <p>Create board</p>
-                </button>
-            </header>
-            <ul id="board_list" class="arrow_list board_list d_flex_sc_gl f_d_c w_full">
-            </ul>
-        </section>
+                <div class="non_edit_content boards-current-title">
+                    <div>
+                        <p class="boards-section-kicker">Board title</p>
+                        <h3 id="board_settings_title">Title</h3>
+                    </div>
+                    <button
+                        type="button"
+                        onclick="toggleBoardTitleEdit()"
+                        class="boards-icon-button"
+                        aria-label="Edit board title"
+                    >
+                        <img src="../../assets/icons/edit.svg" alt="" />
+                    </button>
+                </div>
+            </article>
 
-
-        <section onmousedown="toggleOpenId('dialog_wrapper'); deleteLastingToast()" open="false" current-dialog="board_settings" onclick="stopProp(event)"
-            id="dialog_wrapper" class="dialog_wrapper pad_l">
-            <form onmousedown="stopProp(event)" dialog-type="board_create" onsubmit="boardCreateSubmit(event)"
-                class="current_dialog card d_flex_ss_gl f_d_c std_form w_full" action=""
-                onclick="stopProp(event); resetMailError()" novalidate>
-                <header class="card_header_w_btn">
-                    <h2 class="font_prime_color">Add Board</h2>
-                    <button onclick="toggleOpenId('dialog_wrapper'); stopProp(event); deleteLastingToast()" class="close_btn"><img
-                            src="../../assets/icons/close_white.svg" alt=""></button>
-                </header>
-                <div error="false" id="board_title_input_group"
-                    class="form_group_wo_icon_w_label d_flex_ss_gs f_d_c w_full">
-                    <label class="label_required" for="board_title_input">Title</label>
-                    <input onblur="validateBoardTitle(this)" value="" class="w_full" placeholder="Name your board"
-                        type="text" id="board_title_input" required>
-                    <p class="error_label">Title must be between 3 an 64 characters long.</p>
+            <section class="boards-dialog-section">
+                <div class="boards-dialog-section-heading">
+                    <div>
+                        <p class="boards-section-kicker">Access</p>
+                        <h3>Add members</h3>
+                    </div>
+                    <p>Add another registered user to this board.</p>
                 </div>
 
-                <section class="d_flex_ss_gl f_d_c w_full">
-                    <section class="d_flex_cs_gm f_d_c">
-                        <h3 class="font_prime_color">Add members</h3>
-                        <p class="font_white_color">Add the email addresses of the members you wish to add to your
-                            board</p>
-                        <div onclick="stopProp(event)" error="false" id="create_board_email_input_group"
-                            class="form_group_w_icon_wo_label w_full form_group_invite">
-                            <input id="create_board_email_input" type="text" required>
-                            <label for="create_board_email_input">E-Mail</label>
-                            <button type="button" onclick="boardCreateInviteMember()"
-                                class="std_btn btn_prime d_flex_cc_gl">Add</button>
-                            <p class="error_label" id="email_error_label">Please enter a valid email address.</p>
-                        </div>
-                    </section>
-                    <div class="divider_yellow"></div>
-                    <div class="w_full font_white_color d_flex_ss_gs f_d_c">
-                        <h3>Added members</h3>
-                        <ul id="create_board_member_list" class="member_list">
-                        </ul>
-                    </div>
-                    <div class="d_flex_cc_gl w_full">
-                        <button type="button" onclick="cancelCreateBoard(); stopProp(event)" class="std_btn btn_third pad_s">
-                            Cancel
-                        </button>
-                        <button type="submit" class="std_btn btn_prime pad_s d_flex_cc_gs">
-                            Create
-                        </button>
-
-                    </div>
-                </section>
-            </form>
-            <section onmousedown="stopProp(event)" dialog-type="board_settings" class="current_dialog card d_flex_ss_gl f_d_c std_form w_full"
-                action="" onclick="stopProp(event)">
-                <header class="card_header_w_btn">
-                    <h2 class="font_prime_color">Board Settings</h2>
-                    <button onclick="toggleOpenId('dialog_wrapper'); deleteLastingToast()" class="close_btn"><img
-                            src="../../assets/icons/close_white.svg" alt=""></button>
-                </header>
-                <article edit="false" class="w_full" id="board_settings_title_group">
-                    <form class="">
-                        <div error="false" id="board_settings_title_input_group"
-                            class="form_group_wo_icon_w_label d_flex_ss_gs f_d_c w_full ">
-                            <label class="label_required" for="board_settings_title_input">Title</label>
-
-                            <div class="checkbox_input_group w_full">
-                                <input onblur="validateBoardTitle(this)" value="" class="w_full"
-                                    placeholder="Name your board" type="text" id="board_settings_title_input" required>
-                                <div class="checkbox_wrapper">
-                                    <button type="button" onclick="setNewBoardTitle()"
-                                        class="std_btn d_flex_cc_gs confirm_btn">
-                                        <img src="../../assets/icons/check_yellow.svg" alt="" srcset="">
-                                    </button>
-                                    <button type="button" onclick="toggleBoardTitleEdit()"
-                                        class="std_btn d_flex_cc_gs confirm_btn">
-                                        <img src="../../assets/icons/close_yellow.svg" alt="" srcset="">
-                                    </button>
-                                </div>
-                            </div>
-
-                            <p class="error_label">Title must be between 3 an 64 characters long.</p>
-                        </div>
-                    </form>
-                    <header class="non_edit_content card_header_w_btn">
-                        <h3 id="board_settings_title" class="font_white_color">
-                            Title
-                        </h3>
-                        <button type="button" onclick="toggleBoardTitleEdit()" class="close_btn d_flex_cc_gs">
-                            <img src="../../assets/icons/edit.svg" alt="" srcset="">
-                        </button>
-                    </header>
-                </article>
-                <article class="d_flex_cs_gm f_d_c w_full">
-                    <h3 class="font_prime_color">Add members</h3>
-                    <p class="font_white_color">Add the email addresses of the members you wish to add to your
-                        board</p>
-                    <div onclick="stopProp(event)" error="false" id="board_settings_email_input_group"
-                        class="form_group_w_icon_wo_label w_full form_group_invite">
-                        <input id="board_settings_email_input" type="text" required>
-                        <label for="board_settings_email_input">E-Mail</label>
-                        <button type="button" onclick="boardSettingsInviteMember()"
-                            class="std_btn btn_prime d_flex_cc_gl">Add</button>
-                        <p class="error_label" id="email_error_label">Please enter a valid email address.</p>
-                    </div>
-                </article>
-
-                <div class="divider_yellow "></div>
-
-                <article class="w_full font_white_color d_flex_ss_gl f_d_c">
-                    <h3>Added members</h3>
-                    <ul id="board_settings_member_list" class="member_list">
-                    </ul>
-                </article>
-                <div class="divider_yellow"></div>
-
-                <article class="font_white_color d_flex_cc_gl ">
-                    <div class="font_white_color d_flex_ss_gm f_d_c">
-                        <h3>Delete Board</h3>
-                        <p>This action is irreversible. Once you delete this board, it cannot be restored.</p>
-                    </div>
-                    <button onclick="openBoardDeleteToast()" class="std_btn btn_prime d_flex_sc_gs add_btn">
-                        <img src="../../assets/icons/delete_dark.svg" alt="">
-                        <p>Delete Board</p>
+                <div
+                    onclick="stopProp(event)"
+                    error="false"
+                    id="board_settings_email_input_group"
+                    class="form_group_w_icon_wo_label w_full form_group_invite boards-invite-field"
+                >
+                    <input id="board_settings_email_input" type="email" required />
+                    <label for="board_settings_email_input">Email address</label>
+                    <button
+                        type="button"
+                        onclick="boardSettingsInviteMember()"
+                        class="std_btn btn_prime boards-inline-button"
+                    >
+                        Add
                     </button>
-                </article>
+                    <p class="error_label" id="email_error_label">
+                        Please enter a valid email address.
+                    </p>
+                </div>
+            </section>
+
+            <div class="boards-divider" aria-hidden="true"></div>
+
+            <section class="boards-members-section">
+                <div class="boards-members-heading">
+                    <h3>Board members</h3>
+                    <span>Access list</span>
+                </div>
+                <ul id="board_settings_member_list" class="member_list boards-member-list"></ul>
+            </section>
+
+            <div class="boards-divider" aria-hidden="true"></div>
+
+            <section class="boards-danger-zone">
+                <div>
+                    <p class="boards-section-kicker">Danger zone</p>
+                    <h3>Delete board</h3>
+                    <p>This action is irreversible. Once deleted, the board cannot be restored.</p>
+                </div>
+                <button
+                    type="button"
+                    onclick="openBoardDeleteToast()"
+                    class="boards-delete-button"
+                >
+                    <img src="../../assets/icons/delete_dark.svg" alt="" />
+                    <span>Delete board</span>
+                </button>
             </section>
         </section>
-    </main>
-    <footer class="main_footer  w_full">
-        <nav class="d_flex_cs_gl">
+    </section>
+
+    <footer class="main_footer boards-footer w_full">
+        <nav class="boards-legal-nav" aria-label="Legal information">
             <a href="../privacy/index.html" class="link">Privacy Policy</a>
             <a href="../imprint/index.html" class="link">Imprint</a>
         </nav>
+
+        <p>MM Strategic Assortment · Internal workspace</p>
     </footer>
+
+    <aside class="portfolio-box" aria-label="How we work">
+        <ul class="portfolio-track">
+            <li>Customer first</li>
+            <li>Take ownership</li>
+            <li>Keep it simple</li>
+            <li>Win together</li>
+            <li>Act with courage</li>
+            <li>Learn and adapt</li>
+            <li>Build trust</li>
+            <li>Deliver impact</li>
+            <li>Think end to end</li>
+            <li>Execute with excellence</li>
+        </ul>
+    </aside>
 </body>
 
 </html>

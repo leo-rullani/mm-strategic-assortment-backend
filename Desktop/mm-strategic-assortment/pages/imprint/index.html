@@ -3,11 +3,7 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    />
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MM Strategic Assortment – Imprint</title>
 
     <link rel="stylesheet" href="../../shared/css/variables.css" />
@@ -16,6 +12,8 @@
     <link rel="stylesheet" href="../../shared/css/assets.css" />
     <link rel="stylesheet" href="../../shared/css/header_footer.css" />
     <link rel="stylesheet" href="../../shared/css/mm_theme.css" />
+    <!-- Shared legal-page styles load last so they override the base theme. -->
+    <link rel="stylesheet" href="../../shared/css/legal.css" />
 
     <link
         rel="icon"
@@ -23,62 +21,42 @@
         type="image/png"
     />
 
-    <style>
-        .legal_logo {
-            width: clamp(180px, 20vw, 250px);
-            height: 50px;
-            object-fit: contain;
-            object-position: left center;
-            cursor: pointer;
-        }
-
-        .legal_address {
-            font-style: normal;
-        }
-
-        .legal_contact_label,
-        .legal_contact_link,
-        .legal_contact_link:visited {
-            color: var(--mm-red, #df0000) !important;
-        }
-
-        .legal_contact_link:hover {
-            color: #ff2a1a !important;
-            text-decoration: underline;
-        }
-
-        .legal_date {
-            color: var(--mm-red, #df0000) !important;
-            font-weight: 700;
-        }
-    </style>
-
     <script src="../../shared/js/ui_helper.js"></script>
     <script src="../../shared/js/api.js"></script>
     <script src="../../shared/js/header.js"></script>
 
     <script>
-        function checkNav() {
+        function setLegalBreadcrumbVisibility() {
             const breadcrumb = document.getElementById("legal_breadcrumb");
 
-            if (
-                typeof getAuthUserId !== "function" ||
-                getAuthUserId() == null
-            ) {
-                breadcrumb?.remove();
+            if (breadcrumb && getAuthUserId() == null) {
+                breadcrumb.hidden = true;
             }
         }
     </script>
 </head>
 
-<body onload="setHeader(); checkNav();">
-    <header class="main_header w_full">
-        <img
-            class="legal_logo"
-            onclick="redirectToDashboard()"
-            src="../../assets/icons/media-markt-logo-png_seeklogo-90300.png"
-            alt="MediaMarkt – MM Strategic Assortment"
-        />
+<body
+    class="legal-page legal-page--imprint"
+    onload="setHeader(); setLegalBreadcrumbVisibility()"
+>
+    <a class="legal-skip-link" href="#legal_content">Skip to legal content</a>
+
+    <header class="main_header legal-header w_full">
+        <button
+            class="legal-brand"
+            type="button"
+            onclick="goDashboard()"
+            aria-label="Open MM Strategic Assortment"
+        >
+            <span class="legal-brand-crop" aria-hidden="true">
+                <img
+                    class="legal-brand-image"
+                    src="../../assets/icons/media-markt-logo-png_seeklogo-90300.png"
+                    alt=""
+                />
+            </span>
+        </button>
 
         <div
             id="head_content_right"
@@ -86,146 +64,167 @@
         ></div>
     </header>
 
-    <main class="w_full d_flex_ss_gl font_white_color">
-        <nav
-            id="legal_breadcrumb"
-            class="font_sec_color w_full"
-            aria-label="Breadcrumb"
-        >
-            <a
-                class="link_secondary"
-                href="../dashboard/"
-            >
-                Dashboard
-            </a>
+    <main class="legal-main w_full" id="legal_content">
+        <section class="legal-hero" aria-labelledby="legal_page_title">
+            <div class="legal-hero-copy">
+                <nav
+                    class="legal-breadcrumb"
+                    id="legal_breadcrumb"
+                    aria-label="Breadcrumb"
+                >
+                    <a href="../dashboard/index.html">Dashboard</a>
+                    <span aria-hidden="true">/</span>
+                    <span aria-current="page">Imprint</span>
+                </nav>
 
-            /
-
-            <a
-                class="link_secondary"
-                href="./index.html"
-                aria-current="page"
-            >
-                Imprint
-            </a>
-        </nav>
-
-        <h1 class="font_prime_color">Imprint</h1>
-
-        <section class="d_flex_ss_gm f_d_c">
-            <h2>Legal Disclosure</h2>
-
-            <address class="legal_address">
-                <p>
-                    <strong>Company:</strong>
-                    Media Markt Saturn Switzerland AG
+                <p class="legal-eyebrow">Legal &amp; compliance</p>
+                <h1 class="legal-title" id="legal_page_title">Imprint</h1>
+                <p class="legal-subtitle">
+                    Company details, responsible contacts and legal disclosures for MM Strategic Assortment.
                 </p>
+            </div>
 
-                <p>
-                    <strong>Registered office:</strong>
+            <div class="legal-status" aria-label="Document status">
+                <span class="legal-status-dot" aria-hidden="true"></span>
+                <span>Updated 30 Dec 2025</span>
+            </div>
+        </section>
+
+        <div class="legal-layout">
+            <aside class="legal-toc" aria-labelledby="legal_toc_title">
+                <header class="legal-toc-header">
+                    <p class="legal-section-kicker">On this page</p>
+                    <h2 id="legal_toc_title">Legal disclosure</h2>
+                </header>
+
+                <nav aria-label="Imprint sections">
+                    <ul class="legal-toc-list">
+                        <li><a href="#company">Company information</a></li>
+                        <li><a href="#responsibility">Responsibility</a></li>
+                        <li><a href="#disclaimer">Disclaimer</a></li>
+                        <li><a href="#copyright">Copyright</a></li>
+                    </ul>
+                </nav>
+
+                <p class="legal-toc-note">
+                    Contact links open your phone or email application directly.
                 </p>
+            </aside>
 
-                <p>Allmendstrasse 23</p>
-                <p>8953 Dietikon</p>
-                <p>Switzerland</p>
+            <article class="legal-document" aria-label="Imprint content">
+                <section class="legal-section" id="company">
+                    <p class="legal-section-kicker">Company</p>
+                    <h2>Imprint (Legal Disclosure)</h2>
 
-                <p>
-                    <strong class="legal_contact_label">Email:</strong>
+                    <address class="legal-contact-card">
+                        <div class="legal-contact-grid">
+                            <div class="legal-contact-item">
+                                <span class="legal-contact-label">Company</span>
+                                <span class="legal-contact-value"><strong>BBM Productions AG</strong></span>
+                            </div>
 
-                    <a
-                        class="legal_contact_link"
-                        href="mailto:rullanil@mediamarkt.ch"
-                    >
-                        rullanil@mediamarkt.ch
-                    </a>
-                </p>
-            </address>
-        </section>
+                            <div class="legal-contact-item">
+                                <span class="legal-contact-label">Registered Office</span>
+                                <span class="legal-contact-value">Rheinststrasse 74, 4323 Wallbach, Switzerland</span>
+                            </div>
 
-        <section class="d_flex_ss_gm f_d_c">
-            <h2>Application Responsibility</h2>
+                            <div class="legal-contact-item">
+                                <span class="legal-contact-label">Phone 1</span>
+                                <a class="legal-contact-value" href="tel:+41764885610">+41 76 488 56 10</a>
+                            </div>
 
-            <p>
-                Media Markt Saturn Switzerland AG is responsible for the
-                operation and content of the internal MM Strategic Assortment
-                application.
-            </p>
+                            <div class="legal-contact-item">
+                                <span class="legal-contact-label">Phone 2</span>
+                                <a class="legal-contact-value" href="tel:+41562100740">+41 56 210 07 40</a>
+                            </div>
 
-            <p>
-                The application supports internal assortment planning,
-                alignment, execution and documentation. It is intended solely
-                for authorised business users.
-            </p>
-        </section>
+                            <div class="legal-contact-item">
+                                <span class="legal-contact-label">Email 1</span>
+                                <a
+                                    class="legal-contact-value"
+                                    href="mailto:leugzim.rullani@bbmproductions.ch"
+                                >leugzim.rullani@bbmproductions.ch</a>
+                            </div>
 
-        <section class="d_flex_ss_gm f_d_c">
-            <h2>Disclaimer</h2>
+                            <div class="legal-contact-item">
+                                <span class="legal-contact-label">Email 2</span>
+                                <a
+                                    class="legal-contact-value"
+                                    href="mailto:info@bbmproductions.ch"
+                                >info@bbmproductions.ch</a>
+                            </div>
+                        </div>
+                    </address>
+                </section>
 
-            <p>
-                We make reasonable efforts to keep the information provided
-                through this application accurate and up to date. However, no
-                guarantee is given regarding the completeness, accuracy,
-                reliability or continuous availability of the content.
-            </p>
+                <section class="legal-section" id="responsibility">
+                    <p class="legal-section-kicker">Responsibility</p>
+                    <h2>Responsible contacts</h2>
 
-            <p>
-                Information displayed in the application does not replace
-                approved company policies, contractual documents or binding
-                business decisions.
-            </p>
+                    <div class="legal-contact-grid">
+                        <div class="legal-contact-item">
+                            <span class="legal-contact-label">Responsible for Content</span>
+                            <span class="legal-contact-value">Leugzim Rullani</span>
+                        </div>
 
-            <p>
-                Media Markt Saturn Switzerland AG is not responsible for the
-                content or availability of external websites and resources
-                linked from this application.
-            </p>
-        </section>
+                        <div class="legal-contact-item">
+                            <span class="legal-contact-label">Data Protection Contact</span>
+                            <span class="legal-contact-value">
+                                Leugzim Rullani (Data Protection Officer) –
+                                <a href="mailto:leugzim.rullani@bbmproductions.ch">leugzim.rullani@bbmproductions.ch</a>
+                            </span>
+                        </div>
+                    </div>
+                </section>
 
-        <section class="d_flex_ss_gm f_d_c">
-            <h2>Copyright and Trademarks</h2>
+                <div class="legal-section-grid">
+                    <section class="legal-section" id="disclaimer">
+                        <p class="legal-section-kicker">Information</p>
+                        <h2>Disclaimer</h2>
+                        <p>
+                            We strive to keep the information in our application accurate and up to date; however, we make no
+                            warranties of any kind about the completeness, accuracy, reliability, or availability of the content.
+                            We are not responsible for external websites or resources linked from our application.
+                        </p>
+                    </section>
 
-            <p>
-                The texts, graphics, software components, product information
-                and other materials contained in this application are protected
-                by applicable copyright, trademark and other intellectual
-                property laws.
-            </p>
-
-            <p>
-                MediaMarkt, Saturn and associated names, logos and trademarks
-                may only be used with the appropriate authorisation. Third-party
-                trademarks remain the property of their respective owners.
-            </p>
-
-            <p>
-                Reproduction, distribution, modification or other use beyond
-                what is permitted by law or internal company policy requires
-                prior authorisation.
-            </p>
-        </section>
-
-        <section class="d_flex_ss_gm f_d_c">
-            <p class="legal_date">
-                Created: 30 September 2026
-            </p>
-
-            <p>
-                © 2026 Media Markt Saturn Switzerland AG.
-                All rights reserved.
-            </p>
-        </section>
+                    <section class="legal-section" id="copyright">
+                        <p class="legal-section-kicker">Intellectual property</p>
+                        <h2>Copyright</h2>
+                        <p>
+                            All texts, images, graphics, and trademarks in the application are the property of their respective
+                            owners. Any use beyond what is permitted by law requires prior written consent.
+                        </p>
+                        <p class="legal-date">Last updated: 30 December 2025</p>
+                    </section>
+                </div>
+            </article>
+        </div>
     </main>
 
-    <footer class="main_footer w_full">
-        <nav class="d_flex_cs_gl">
-            <a
-                href="../privacy/index.html"
-                class="link"
-            >
-                Privacy Policy
-            </a>
+    <footer class="main_footer legal-footer w_full">
+        <nav class="legal-footer-nav" aria-label="Legal information">
+            <a href="../privacy/index.html" class="link">Privacy Policy</a>
+            <a href="./index.html" class="link" aria-current="page">Imprint</a>
         </nav>
+
+        <p>MM Strategic Assortment · Internal workspace</p>
     </footer>
+
+    <aside class="portfolio-box" aria-label="How we work">
+        <ul class="portfolio-track">
+            <li>Customer first</li>
+            <li>Take ownership</li>
+            <li>Keep it simple</li>
+            <li>Win together</li>
+            <li>Act with courage</li>
+            <li>Learn and adapt</li>
+            <li>Build trust</li>
+            <li>Deliver impact</li>
+            <li>Think end to end</li>
+            <li>Execute with excellence</li>
+        </ul>
+    </aside>
 </body>
 
 </html>
