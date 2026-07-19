@@ -14,6 +14,19 @@ let signUpValues = {
 }
 
 /**
+ * Session-storage key used to carry a one-time success message from
+ * the registration page to the login page.
+ * @type {string}
+ */
+const REGISTRATION_SUCCESS_KEY = "mm-registration-success";
+
+/**
+ * Message shown once on the login page after a successful registration.
+ * @type {string}
+ */
+const REGISTRATION_SUCCESS_MESSAGE = "Registration successful. You can now log in.";
+
+/**
  * Handles the signup form submission.
  * Prevents default form submission, validates the form, and if valid, calls the registration function.
  * @param {Event} event - The form submission event.
@@ -23,13 +36,14 @@ async function signUpSubmit(event) {
     event.preventDefault();
     let isFormValid = validateSignUp();
     if (isFormValid) {
-        registration(signUpValues)
+        await registration(signUpValues)
     }
 }
 
 /**
  * Sends registration data to the backend and handles the response.
- * Shows error messages if registration fails, otherwise saves auth credentials and redirects to the dashboard.
+ * Shows error messages if registration fails. On success, stores a one-time
+ * notification and redirects to the login page without authenticating the user.
  * @param {Object} data - The registration data including fullname, email, password, etc.
  * @returns {Promise<void>}
  */
@@ -39,8 +53,64 @@ async function registration(data) {
         let errorArr = extractErrorMessages(response.data)
         showToastMessage(true, errorArr)
     } else {
-        setAuthCredentials(response.data.token, response.data.user_id, response.data.email, response.data.fullname)
-        window.location.href = "../dashboard/index.html"
+        let loginTarget = "./login.html";
+
+        try {
+            sessionStorage.setItem(REGISTRATION_SUCCESS_KEY, REGISTRATION_SUCCESS_MESSAGE);
+        } catch (error) {
+            // Fallback for browsers that block sessionStorage.
+            loginTarget += "?registration=success";
+        }
+
+        window.location.replace(loginTarget);
+    }
+}
+
+/**
+ * Displays the one-time registration success toast on the login page.
+ * The message is removed before rendering so a refresh does not show it again.
+ * A query-string fallback is supported when sessionStorage is unavailable.
+ *
+ * @returns {void}
+ */
+function showRegistrationSuccessToast() {
+    let message = "";
+
+    try {
+        message = sessionStorage.getItem(REGISTRATION_SUCCESS_KEY) || "";
+        sessionStorage.removeItem(REGISTRATION_SUCCESS_KEY);
+    } catch (error) {
+        // The URL fallback below still works without sessionStorage.
+    }
+
+    const url = new URL(window.location.href);
+    const hasFallbackFlag = url.searchParams.get("registration") === "success";
+
+    if (!message && hasFallbackFlag) {
+        message = REGISTRATION_SUCCESS_MESSAGE;
+    }
+
+    if (hasFallbackFlag) {
+        url.searchParams.delete("registration");
+        try {
+            window.history.replaceState(
+                {},
+                document.title,
+                url.pathname + url.search + url.hash
+            );
+        } catch (error) {
+            // The toast can still be shown if URL cleanup is restricted.
+        }
+    }
+
+    if (!message) return;
+
+    const toast = showToastMessage(false, [message], 5000);
+    if (toast) {
+        toast.classList.add("auth_success_toast");
+        toast.setAttribute("role", "status");
+        toast.setAttribute("aria-live", "polite");
+        toast.setAttribute("aria-atomic", "true");
     }
 }
 
@@ -179,7 +249,7 @@ function validateEmail(element) {
  */
 function validateSignUp() {
     validateFullname(document.getElementById("fullname"))
-    validateEmail(document.getElementById("email"))
+    validateRegistrationEmail(document.getElementById("email"))
     validatePW(document.getElementById("password"))
     validateConfirmPW(document.getElementById("repeated_password"))
     validatePrivacyCheckbox(document.getElementById("privacy_policy_checkbox"))

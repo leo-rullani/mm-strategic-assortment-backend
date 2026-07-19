@@ -72,9 +72,9 @@ function setError(valid, id) {
 
 /**
  * Returns the initials of a given full name.
- * Works with one‑part or multi‑part names and is null‑safe.
+ * Works with oneâ€‘part or multiâ€‘part names and is nullâ€‘safe.
  *
- * @param {string} fullname – e.g. "John Doe"   |  "Madonna" | ""
+ * @param {string} fullname â€“ e.g. "John Doe"   |  "Madonna" | ""
  * @returns {string} e.g. "JD", "M", "?"
  */
 function getInitials(fullname) {
@@ -172,11 +172,13 @@ function extractErrorMessages(errorObject) {
 
 /**
  * Shows a temporary toast message on the screen.
- * Automatically removes the toast after 2.5 seconds.
+ * Automatically removes the toast after the configured duration.
  * @param {boolean} [error=true] - Whether the toast represents an error.
  * @param {Array<string>} [msg=[]] - The message(s) to display in the toast.
+ * @param {number} [duration=2500] - Visibility duration in milliseconds.
+ * @returns {HTMLDivElement} The created toast element.
  */
-function showToastMessage(error = true, msg = []) {
+function showToastMessage(error = true, msg = [], duration = 2500) {
     const toast = document.createElement('div');
     toast.className = 'toast_msg d_flex_cc_gm pad_s';
     toast.innerHTML = getToastHTML(msg, error);
@@ -185,7 +187,9 @@ function showToastMessage(error = true, msg = []) {
 
     setTimeout(() => {
         toast.remove();
-    }, 2500);
+    }, duration);
+
+    return toast;
 }
 
 /**
@@ -289,24 +293,23 @@ function getParamFromUrl(param) {
 /**
  * Redirects the user to the dashboard if authenticated,
  * otherwise redirects to the login page.
- * On boards pages, block only automatic redirects; allow manual clicks.
+ * This function is intended for explicit navigation such as a logo click.
+ *
+ * @returns {void}
  */
-function redirectToDashboard(manual = false) {
-  const p = (window.location && window.location.pathname) || '';
+function redirectToDashboard() {
+    const isAuthenticated =
+        typeof getAuthUserId === "function" && Boolean(getAuthUserId());
 
-  // Block NUR Auto-Redirects auf Boards/Board-Seiten
-  if (!manual && (p.includes('/pages/boards') || p.includes('/boards') || p.includes('/pages/board') || p.includes('/board'))) {
-    return;
-  }
-
-  if (getAuthUserId()) {
-    window.location.href = "../../pages/dashboard/";
-  } else {
-    window.location.href = "../../pages/auth/login.html";
-  }
+    window.location.href = isAuthenticated
+        ? "../../pages/dashboard/index.html"
+        : "../../pages/auth/login.html";
 }
 
-// manual clicks
+/**
+ * Alias used by clickable brand elements.
+ * @returns {void}
+ */
 function goDashboard() {
-  return redirectToDashboard(true);
+    redirectToDashboard();
 }
