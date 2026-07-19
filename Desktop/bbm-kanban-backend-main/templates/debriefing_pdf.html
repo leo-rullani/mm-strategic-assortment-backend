@@ -1,0 +1,128 @@
+{# templates/debriefing_pdf.html #}
+{% load static %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>Debriefing – {{ debriefing.match_date|date:"d.m.Y" }}</title>
+
+    <!-- Minimal inline‑Styles (PDF‑geeignet) -->
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 2cm 2cm 2.5cm 2cm;
+        }
+
+        body {
+            font-family: "Helvetica", "Arial", sans-serif;
+            font-size: 11pt;
+            line-height: 1.35;
+            color: #222;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2cm;
+        }
+
+        header img.logo {
+            height: 38px;
+            width: auto;
+        }
+
+        h1 {
+            font-size: 18pt;
+            margin: 0 0 4px 0;
+            color: #003366; /* SFL‑Blau */
+        }
+
+        h2 {
+            font-size: 13pt;
+            margin: 18px 0 6px 0;
+            color: #003366;
+            border-bottom: 2px solid #FDB924; /* BBM‑Gelb */
+            display: inline-block;
+            padding-bottom: 2px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 4px;
+        }
+
+        th, td {
+            padding: 6px 4px;
+            border: 1px solid #ccc;
+        }
+
+        th {
+            background: #f2f2f2;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        /* Checkbox‑Darstellung für Boolean‑Felder */
+        .check {
+            display: inline-block;
+            width: 10px; height: 10px;
+            margin-right: 4px;
+            border: 1px solid #333;
+            vertical-align: middle;
+        }
+        .check.filled {
+            background: #003366;
+        }
+
+        footer {
+            position: fixed;
+            bottom: 1cm;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 9pt;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ==== Kopfbereich mit Logos ==== -->
+    <header>
+        <img src="{% static 'assets/icons/sfl.png' %}" class="logo" alt="SFL Logo">
+        <img src="{% static 'assets/icons/bbm.png' %}" class="logo" alt="BBM Logo">
+    </header>
+
+    <!-- ==== Titel und Metadaten ==== -->
+    <h1>Match‑Debriefing</h1>
+    <p>
+        <strong>Datum:</strong> {{ debriefing.match_date|date:"d.m.Y" }}<br>
+        <strong>Board:</strong> {{ debriefing.board.title }}<br>
+        <strong>Status:</strong> {{ debriefing.get_status_display }}<br>
+        {% if debriefing.submitted_at %}
+            <strong>Eingereicht am:</strong> {{ debriefing.submitted_at|date:"d.m.Y H:i" }}
+        {% endif %}
+    </p>
+
+    <!-- ==== Beispiel‑Sektion Spielablauf ==== -->
+    <h2>Spielablauf&nbsp;&amp;&nbsp;Sicherheit</h2>
+    <table>
+        <tr>
+            <th>Kick‑off ok?</th>
+            <td>
+                <span class="check {% if debriefing.kick_off_ok %}filled{% endif %}"></span>
+                {% if debriefing.kick_off_ok %}Ja{% else %}Nein{% endif %}
+            </td>
+        </tr>
+        {# weitere Felder analog ergänzen #}
+    </table>
+
+    <!-- ==== Footer ==== -->
+    <footer>
+        Seite <span class="pageNumber"></span> / <span class="totalPages"></span>
+    </footer>
+
+</body>
+</html>

@@ -1,0 +1,20 @@
+[Unit]
+Description=gunicorn daemon for KanMind
+After=network.target
+
+[Service]
+User=dein_user
+Group=www-data
+WorkingDirectory=/pfad/zu/deinem/project.KanMind-backend
+Environment="PATH=/pfad/zu/deinem/project.KanMind-backend/env/bin"
+ExecStart=/pfad/zu/deinem/project.KanMind-backend/env/bin/gunicorn 
+\
+          --workers 3 \
+          --bind 
+unix:/pfad/zu/deinem/project.KanMind-backend/gunicorn.sock 
+\
+          kanban_hub.wsgi:application
+
+[Install]
+WantedBy=multi-user.target
+

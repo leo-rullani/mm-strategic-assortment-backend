@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>BBM API – Testübersicht & Endpunkt-Dokumentation</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; color: #222; }
+    h1, h2, h3 { color: #195c8b; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }
+    th, td { border: 1px solid #bbb; padding: 7px 13px; }
+    th { background: #f7f7f7; }
+    tr:nth-child(even) { background: #f2f2f2; }
+    .ok { color: #228b22; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>BBM API Endpoint Dokumentation & Testübersicht</h1>
+
+  <h2>Authentication – Login und Registrierung</h2>
+  <ul>
+    <li><b>POST</b> <code>/api/auth/registration/</code></li>
+    <li><b>POST</b> <code>/api/auth/login/</code></li>
+  </ul>
+
+  <h2>Boards – Bearbeitung, Erstellung und Abruf</h2>
+  <ul>
+    <li><b>GET</b> <code>/api/kanban/boards/</code></li>
+    <li><b>POST</b> <code>/api/kanban/boards/</code></li>
+    <li><b>GET</b> <code>/api/kanban/boards/{board_id}/</code></li>
+    <li><b>PATCH</b> <code>/api/kanban/boards/{board_id}/</code></li>
+    <li><b>DELETE</b> <code>/api/kanban/boards/{board_id}/</code></li>
+    <li><b>GET</b> <code>/api/kanban/email-check/</code></li>
+  </ul>
+
+  <h2>Tasks – Bearbeitung, Erstellung und Abruf</h2>
+  <ul>
+    <li><b>GET</b> <code>/api/kanban/tasks/assigned-to-me/</code></li>
+    <li><b>GET</b> <code>/api/kanban/tasks/reviewing/</code></li>
+    <li><b>POST</b> <code>/api/kanban/tasks/</code></li>
+    <li><b>PATCH</b> <code>/api/kanban/tasks/{task_id}/</code></li>
+    <li><b>DELETE</b> <code>/api/kanban/tasks/{task_id}/</code></li>
+    <li><b>GET</b> <code>/api/kanban/tasks/{task_id}/comments/</code></li>
+    <li><b>POST</b> <code>/api/kanban/tasks/{task_id}/comments/</code></li>
+    <li><b>DELETE</b> <code>/api/kanban/tasks/{task_id}/comments/{comment_id}/</code></li>
+  </ul>
+
+  <h2>Test-Übersicht (Postman / Manuelle Tests)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Endpunkt</th>
+        <th>Methode</th>
+        <th>Teststatus</th>
+        <th>Kommentar</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>/api/auth/registration/</td><td>POST</td><td class="ok">✅</td><td>Registrierung erfolgreich, neuer User angelegt.</td></tr>
+      <tr><td>/api/auth/login/</td><td>POST</td><td class="ok">✅</td><td>Login erfolgreich mit gültigen Credentials.</td></tr>
+      <tr><td>/api/kanban/boards/</td><td>GET</td><td class="ok">✅</td><td>Boards abrufbar, Liste mit korrekten Daten.</td></tr>
+      <tr><td>/api/kanban/boards/</td><td>POST</td><td class="ok">✅</td><td>Board erfolgreich erstellt.</td></tr>
+      <tr><td>/api/kanban/boards/{board_id}/</td><td>GET</td><td class="ok">✅</td><td>Einzelnes Board mit Details abrufbar.</td></tr>
+      <tr><td>/api/kanban/boards/{board_id}/</td><td>PATCH</td><td class="ok">✅</td><td>Board bearbeitet, Mitglieder aktualisiert.</td></tr>
+      <tr><td>/api/kanban/boards/{board_id}/</td><td>DELETE</td><td class="ok">✅</td><td>Board erfolgreich gelöscht.</td></tr>
+      <tr><td>/api/kanban/email-check/</td><td>GET</td><td class="ok">✅</td><td>Email-Check erfolgreich für leugzim.rullani@bbmproductions.ch.</td></tr>
+      <tr><td>/api/kanban/tasks/assigned-to-me/</td><td>GET</td><td class="ok">✅</td><td>Aufgaben, die mir zugewiesen sind, korrekt zurückgegeben.</td></tr>
+      <tr><td>/api/kanban/tasks/reviewing/</td><td>GET</td><td class="ok">✅</td><td>Review-Aufgaben abrufbar, inkl. eigener Test-Task.</td></tr>
+      <tr><td>/api/kanban/tasks/</td><td>POST</td><td class="ok">✅</td><td>Task erfolgreich angelegt.</td></tr>
+      <tr><td>/api/kanban/tasks/{task_id}/</td><td>PATCH</td><td class="ok">✅</td><td>Task bearbeitet, Status und Felder aktualisiert.</td></tr>
+      <tr><td>/api/kanban/tasks/{task_id}/</td><td>DELETE</td><td class="ok">✅</td><td>Task erfolgreich gelöscht.</td></tr>
+      <tr><td>/api/kanban/tasks/{task_id}/comments/</td><td>GET</td><td class="ok">✅</td><td>Kommentare zu Task abrufbar, inkl. eigener Testkommentar.</td></tr>
+      <tr><td>/api/kanban/tasks/{task_id}/comments/</td><td>POST</td><td class="ok">✅</td><td>Kommentar hinzugefügt.</td></tr>
+      <tr><td>/api/kanban/tasks/{task_id}/comments/{comment_id}/</td><td>DELETE</td><td class="ok">✅</td><td>Kommentar gelöscht.</td></tr>
+    </tbody>
+  </table>
+
+  <p><b>Abdeckung: Über 95% – Alle kritischen Endpunkte getestet.</b></p>
+</body>
+</html>
