@@ -1,7 +1,7 @@
 """Django settings for the MM Strategic Assortment backend.
 
 Production secrets and deployment-specific values are read from environment
-variables. The defaults intentionally support local development only.
+variables.  The defaults intentionally support local development only.
 """
 
 from __future__ import annotations
@@ -55,6 +55,7 @@ ALLOWED_HOSTS = env_list(
 )
 
 
+# Applications
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -73,6 +74,7 @@ INSTALLED_APPS = [
 AUTH_USER_MODEL = "auth_app.User"
 
 
+# Middleware
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -85,6 +87,8 @@ MIDDLEWARE = [
 ]
 
 
+# Cross-origin access is restricted to the deployed frontend and local
+# development servers. Override both lists with comma-separated env values.
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = env_list(
     "DJANGO_CORS_ALLOWED_ORIGINS",
@@ -112,6 +116,7 @@ CSRF_TRUSTED_ORIGINS = env_list(
 )
 
 
+# Templates
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -131,6 +136,7 @@ ROOT_URLCONF = "core.urls"
 WSGI_APPLICATION = "core.wsgi.application"
 
 
+# Database
 DATABASES = {
     "default": {
         "ENGINE": os.getenv("DJANGO_DB_ENGINE", "django.db.backends.sqlite3"),
@@ -139,6 +145,7 @@ DATABASES = {
 }
 
 
+# Authentication and internationalisation
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": (
@@ -146,24 +153,9 @@ AUTH_PASSWORD_VALIDATORS = [
             "UserAttributeSimilarityValidator"
         )
     },
-    {
-        "NAME": (
-            "django.contrib.auth.password_validation."
-            "MinimumLengthValidator"
-        )
-    },
-    {
-        "NAME": (
-            "django.contrib.auth.password_validation."
-            "CommonPasswordValidator"
-        )
-    },
-    {
-        "NAME": (
-            "django.contrib.auth.password_validation."
-            "NumericPasswordValidator"
-        )
-    },
+    {"NAME": ("django.contrib.auth.password_validation." "MinimumLengthValidator")},
+    {"NAME": ("django.contrib.auth.password_validation." "CommonPasswordValidator")},
+    {"NAME": ("django.contrib.auth.password_validation." "NumericPasswordValidator")},
 ]
 
 LANGUAGE_CODE = "en-us"
@@ -172,32 +164,36 @@ USE_I18N = True
 USE_TZ = True
 
 
+# Static and uploaded files
 STATIC_URL = "/static/"
-STATIC_ROOT = Path(
-    os.getenv("DJANGO_STATIC_ROOT", str(BASE_DIR / "staticfiles"))
-)
+STATIC_ROOT = Path(os.getenv("DJANGO_STATIC_ROOT", str(BASE_DIR / "staticfiles")))
 
 _frontend_asset_candidates = (
     BASE_DIR / "frontend" / "assets",
     BASE_DIR.parent / "bbm_kanban-frontend-main" / "assets",
 )
-
-STATICFILES_DIRS = [
-    path
-    for path in _frontend_asset_candidates
-    if path.is_dir()
-]
+STATICFILES_DIRS = [path for path in _frontend_asset_candidates if path.is_dir()]
 
 MEDIA_URL = "/media/"
-MEDIA_ROOT = Path(
-    os.getenv("DJANGO_MEDIA_ROOT", str(BASE_DIR / "media"))
+MEDIA_ROOT = Path(os.getenv("DJANGO_MEDIA_ROOT", str(BASE_DIR / "media")))
+
+# Finished HTML tool documents are limited to 10 MiB. The API also validates
+# each file, while these settings protect Django at request level.
+DOCUMENT_MAX_UPLOAD_SIZE = int(
+    os.getenv(
+        "DJANGO_DOCUMENT_MAX_UPLOAD_SIZE",
+        str(10 * 1024 * 1024),
+    )
 )
 
-BOOKLET_MAX_UPLOAD_SIZE = 10 * 1024 * 1024
-FILE_UPLOAD_MAX_MEMORY_SIZE = BOOKLET_MAX_UPLOAD_SIZE
-DATA_UPLOAD_MAX_MEMORY_SIZE = BOOKLET_MAX_UPLOAD_SIZE + (1024 * 1024)
+# Compatibility for code and deployments using the former booklet setting.
+BOOKLET_MAX_UPLOAD_SIZE = DOCUMENT_MAX_UPLOAD_SIZE
+
+FILE_UPLOAD_MAX_MEMORY_SIZE = DOCUMENT_MAX_UPLOAD_SIZE
+DATA_UPLOAD_MAX_MEMORY_SIZE = DOCUMENT_MAX_UPLOAD_SIZE + (1024 * 1024)
 
 
+# Django REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication",
@@ -208,62 +204,42 @@ REST_FRAMEWORK = {
 }
 
 
+# Email. Console output is the safe local default; production should set
+# DJANGO_EMAIL_BACKEND to django.core.mail.backends.smtp.EmailBackend and
+# provide the SMTP variables below.
 EMAIL_BACKEND = os.getenv(
     "DJANGO_EMAIL_BACKEND",
     "django.core.mail.backends.console.EmailBackend",
 )
-
-EMAIL_HOST = os.getenv("DJANGO_EMAIL_HOST") or os.getenv(
-    "EMAIL_HOST",
-    "",
+EMAIL_HOST = os.getenv("DJANGO_EMAIL_HOST") or os.getenv("EMAIL_HOST", "")
+EMAIL_PORT = int(os.getenv("DJANGO_EMAIL_PORT") or os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("DJANGO_EMAIL_HOST_USER") or os.getenv(
+    "EMAIL_HOST_USER", ""
 )
-
-EMAIL_PORT = int(
-    os.getenv("DJANGO_EMAIL_PORT")
-    or os.getenv("EMAIL_PORT", "587")
+EMAIL_HOST_PASSWORD = os.getenv("DJANGO_EMAIL_HOST_PASSWORD") or os.getenv(
+    "EMAIL_HOST_PASSWORD", ""
 )
-
-EMAIL_HOST_USER = (
-    os.getenv("DJANGO_EMAIL_HOST_USER")
-    or os.getenv("EMAIL_HOST_USER", "")
-)
-
-EMAIL_HOST_PASSWORD = (
-    os.getenv("DJANGO_EMAIL_HOST_PASSWORD")
-    or os.getenv("EMAIL_HOST_PASSWORD", "")
-)
-
 EMAIL_USE_TLS = env_bool("DJANGO_EMAIL_USE_TLS", True)
 EMAIL_USE_SSL = env_bool("DJANGO_EMAIL_USE_SSL", False)
-
 if EMAIL_USE_TLS and EMAIL_USE_SSL:
     raise ImproperlyConfigured(
         "DJANGO_EMAIL_USE_TLS and DJANGO_EMAIL_USE_SSL cannot both be true."
     )
-
 EMAIL_TIMEOUT = int(os.getenv("DJANGO_EMAIL_TIMEOUT", "10"))
-
 DEFAULT_FROM_EMAIL = os.getenv(
     "DJANGO_DEFAULT_FROM_EMAIL",
     EMAIL_HOST_USER or "rullanil@mediamarkt.ch",
 )
 
 
+# Basic deployment hardening is enabled automatically outside development.
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
-SECURE_SSL_REDIRECT = env_bool(
-    "DJANGO_SECURE_SSL_REDIRECT",
-    not DEBUG,
-)
-
+SECURE_SSL_REDIRECT = env_bool("DJANGO_SECURE_SSL_REDIRECT", not DEBUG)
 SECURE_HSTS_SECONDS = int(
-    os.getenv(
-        "DJANGO_SECURE_HSTS_SECONDS",
-        "31536000" if not DEBUG else "0",
-    )
+    os.getenv("DJANGO_SECURE_HSTS_SECONDS", "31536000" if not DEBUG else "0")
 )
-
 SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
 SECURE_HSTS_PRELOAD = not DEBUG
 
