@@ -1,143 +1,279 @@
 /**
- * Draws a pie chart (doughnut) representing the status of assigned tickets.
- * If no tickets are assigned, displays a placeholder message.
- * @param {Array<number>} currentAssignedTickets - Array with ticket counts for each status.
+ * Dashboard charts for MM Strategic Assortment.
+ * Existing Chart.js instances are destroyed before redraw so repeated renders
+ * and hot reloads do not lock the canvas.
  */
-function drawPieChart(currentAssignedTickets) {
-    let ticketData = getPieChartData(currentAssignedTickets)
-    let labels = ['To-do', 'In progress', 'Review', 'Done'];
 
-    if (ticketData.every(val => val === 0)) {
-        ticketData = [1];
-        labels = ['No tasks assigned'];
+function destroyChartForCanvas(canvas) {
+    if (
+        !canvas ||
+        typeof Chart === "undefined" ||
+        typeof Chart.getChart !== "function"
+    ) {
+        return;
     }
 
-    const ctx = document.getElementById('ticketsChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'doughnut',
+    const existingChart = Chart.getChart(canvas);
+    if (existingChart) existingChart.destroy();
+}
+
+/**
+ * Return ticket totals in dashboard status order.
+ * @param {Array<Object>} tickets
+ * @returns {Array<number>}
+ */
+function getPieChartData(tickets = []) {
+    const safeTickets = Array.isArray(tickets) ? tickets : [];
+
+    return [
+        safeTickets.filter(task => task?.status === "to-do").length,
+        safeTickets.filter(task => task?.status === "in-progress").length,
+        safeTickets.filter(task => task?.status === "review").length,
+        safeTickets.filter(task => task?.status === "done").length
+    ];
+}
+
+/**
+ * Draw the task status doughnut.
+ * @param {Array<Object>} currentAssignedTickets
+ */
+function drawPieChart(currentAssignedTickets = []) {
+    const canvas = document.getElementById("ticketsChart");
+    if (!canvas || typeof Chart === "undefined") return;
+
+    destroyChartForCanvas(canvas);
+
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    let data = getPieChartData(currentAssignedTickets);
+    let labels = ["To do", "In progress", "Review", "Done"];
+    const hasTickets = data.some(value => value > 0);
+
+    if (!hasTickets) {
+        data = [1];
+        labels = ["No tasks assigned"];
+    }
+
+    const colors = hasTickets
+        ? ["#777a82", "#ff653c", "#ffbd45", "#4bc68b"]
+        : ["#34373e"];
+
+    const total = hasTickets
+        ? data.reduce((sum, value) => sum + value, 0)
+        : 0;
+
+    const centerLabelPlugin = {
+        id: "dashboardDoughnutCenter",
+        afterDraw(chart) {
+            const meta = chart.getDatasetMeta(0);
+            const firstArc = meta?.data?.[0];
+            if (!firstArc) return;
+
+            const { ctx } = chart;
+            const centerX = firstArc.x;
+            const centerY = firstArc.y;
+
+            ctx.save();
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            ctx.fillStyle = "#f7f7f8";
+            ctx.font = "800 34px Arial, sans-serif";
+            ctx.fillText(String(total), centerX, centerY - 7);
+
+            ctx.fillStyle = "#a5a8b0";
+            ctx.font = "700 10px Arial, sans-serif";
+            ctx.fillText(hasTickets ? "TOTAL TASKS" : "NO TASKS", centerX, centerY + 22);
+            ctx.restore();
+        }
+    };
+
+    new Chart(context, {
+        type: "doughnut",
         data: {
-            labels: labels,
+            labels,
             datasets: [{
-                data: ticketData,
-                backgroundColor: ['#7B7E86', '#1769E0', '#7D43B8', '#16834B'],
-                borderWidth: 0
+                data,
+                backgroundColor: colors,
+                borderColor: "#202329",
+                borderWidth: hasTickets ? 4 : 0,
+                hoverOffset: hasTickets ? 8 : 0
             }]
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
+            cutout: "70%",
+            animation: {
+                duration: 650
+            },
             plugins: {
                 legend: {
-                    position: 'bottom',
+                    display: true,
+                    position: "bottom",
                     labels: {
-                        color: '#555861',
+                        color: "#c8cad0",
                         usePointStyle: true,
-                        pointStlye: 'circle',
+                        pointStyle: "circle",
+                        boxWidth: 8,
+                        boxHeight: 8,
+                        padding: 18,
+                        font: {
+                            size: 11,
+                            weight: "700"
+                        }
                     }
+                },
+                tooltip: {
+                    enabled: hasTickets,
+                    backgroundColor: "#101113",
+                    titleColor: "#f7f7f8",
+                    bodyColor: "#d4d5d9",
+                    borderColor: "rgba(255,255,255,.14)",
+                    borderWidth: 1,
+                    padding: 12,
+                    displayColors: true
                 }
             }
-        }
+        },
+        plugins: [centerLabelPlugin]
     });
-};
+}
 
-/**
- * Returns an array of ticket counts for each status used in the pie chart.
- * @param {Array<Object>} currentAssignedTickets - Array of ticket objects with a status property.
- * @returns {Array<number>} Array with counts for ['to-do', 'in-progress', 'review', 'done'].
- */
-function getPieChartData(currentAssignedTickets) {
-    return [
-        currentAssignedTickets.filter(task => task.status == "to-do").length,
-        currentAssignedTickets.filter(task => task.status == "in-progress").length,
-        currentAssignedTickets.filter(task => task.status == "review").length,
-        currentAssignedTickets.filter(task => task.status == "done").length,
-    ]
+function drawRoundedRect(ctx, x, y, width, height, radius) {
+    const safeRadius = Math.min(radius, width / 2, height / 2);
+
+    ctx.beginPath();
+    ctx.moveTo(x + safeRadius, y);
+    ctx.arcTo(x + width, y, x + width, y + height, safeRadius);
+    ctx.arcTo(x + width, y + height, x, y + height, safeRadius);
+    ctx.arcTo(x, y + height, x, y, safeRadius);
+    ctx.arcTo(x, y, x + width, y, safeRadius);
+    ctx.closePath();
 }
 
 /**
- * Draws a custom wave chart to visualize the progress percentage.
- * If progress is invalid, displays a fallback message.
- * @param {number} progress - The progress value (expected between 0 and 100).
+ * Draw a segmented progress signal. The historic function name stays intact so
+ * existing dashboard code remains compatible.
+ * @param {number|null} progress
  */
 function drawWaveChart(progress) {
-    let progressIsValid = true;
-    if (progress < 0 || progress > 100 || isNaN(progress)) {
-        progress = 0;
-        progressIsValid = false;
-    }
-    const ctx = document.getElementById("waveChart").getContext("2d");
-    const wavePlugin = {
-        id: 'waveProgress',
+    const canvas = document.getElementById("waveChart");
+    if (!canvas || typeof Chart === "undefined") return;
+
+    destroyChartForCanvas(canvas);
+
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    const numericProgress = Number(progress);
+    const hasTasks =
+        progress !== null &&
+        progress !== undefined &&
+        Number.isFinite(numericProgress);
+
+    const safeProgress = hasTasks
+        ? Math.min(100, Math.max(0, numericProgress))
+        : 0;
+
+    const signalPlugin = {
+        id: "dashboardSignalProgress",
         beforeDraw(chart) {
-            const { ctx, chartArea: { left, right, top, bottom }, scales: { x } } = chart;
-            const width = right - left;
-            const height = bottom - top;
-            const progressX = left + (width * (progress / 100));
+            const { ctx, chartArea } = chart;
+            if (!chartArea) return;
+
+            const width = chartArea.right - chartArea.left;
+            const centerY = chartArea.top + (chartArea.bottom - chartArea.top) * 0.68;
+            const segments = 20;
+            const gap = 5;
+            const segmentWidth = (width - gap * (segments - 1)) / segments;
+            const segmentHeight = 14;
+            const activeSegments = Math.round((safeProgress / 100) * segments);
 
             ctx.save();
 
-            // Wave strokes
-            function drawWave(color, startX, endX) {
-                ctx.beginPath();
-                ctx.moveTo(startX, bottom - height / 2);
-                const waveLength = 90;  // Wavelength
-                const amplitude = 10;   // Wavehight
+            ctx.fillStyle = "#f7f7f8";
+            ctx.font = "850 38px Arial, sans-serif";
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+            ctx.fillText(
+                hasTasks ? `${safeProgress.toFixed(1)}%` : "No assigned tasks",
+                chartArea.left,
+                chartArea.top + 32
+            );
 
-                for (let x = startX; x <= endX; x += 2) {
-                    const y = bottom - height / 2 + Math.sin((x / waveLength) * Math.PI * 2) * amplitude;
-                    ctx.lineTo(x, y);
+            ctx.fillStyle = "#a5a8b0";
+            ctx.font = "700 11px Arial, sans-serif";
+            ctx.fillText(
+                hasTasks ? "COMPLETED SHARE" : "PROGRESS WILL APPEAR HERE",
+                chartArea.left,
+                chartArea.top + 65
+            );
+
+            for (let index = 0; index < segments; index += 1) {
+                const x = chartArea.left + index * (segmentWidth + gap);
+                const y = centerY - segmentHeight / 2;
+
+                drawRoundedRect(ctx, x, y, segmentWidth, segmentHeight, 4);
+
+                if (index < activeSegments) {
+                    const gradient = ctx.createLinearGradient(x, y, x + segmentWidth, y);
+                    gradient.addColorStop(0, "#df0000");
+                    gradient.addColorStop(1, "#ff653c");
+                    ctx.fillStyle = gradient;
+                } else {
+                    ctx.fillStyle = "#353840";
                 }
 
-                ctx.lineWidth = 8;
-                ctx.strokeStyle = color;
-                ctx.stroke();
+                ctx.fill();
             }
 
-            drawWave("#DF0000", left, progressX);
-            drawWave("#D6D7DC", progressX, right);
-
-            // Progress Text - Currently aligned in center
-            ctx.fillStyle = "#DF0000";
-            ctx.font = "16px Arial";
-            ctx.textAlign = "center";
-            let text = progressIsValid ? progress.toFixed(2) + "%" : "No Tasks found";
-            ctx.fillText(text, left + width / 2, bottom - height / 2 - 20);
-
-            // Numbers left and right
-            ctx.fillStyle = "#777A82";
-            ctx.font = "14px Arial";
+            ctx.fillStyle = "#777a82";
+            ctx.font = "700 10px Arial, sans-serif";
             ctx.textAlign = "left";
-            ctx.fillText("0", left, bottom);
+            ctx.fillText("0", chartArea.left, centerY + 28);
             ctx.textAlign = "right";
-            ctx.fillText("100", right, bottom);
+            ctx.fillText("100", chartArea.right, centerY + 28);
 
             ctx.restore();
         }
     };
 
-    new Chart(ctx, {
+    new Chart(context, {
         type: "bar",
         data: {
-            labels: ["Fortschritt"],
+            labels: ["Progress"],
             datasets: [{
-                label: "Tasks Resolved",
-                data: [progress],
-                backgroundColor: "rgba(0, 0, 0, 0)",
+                data: [safeProgress],
+                backgroundColor: "rgba(0,0,0,0)",
                 borderWidth: 0
             }]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            height: 100,
+            animation: {
+                duration: 550
+            },
+            events: [],
             plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: { enabled: false }
+            },
+            layout: {
+                padding: {
+                    top: 4,
+                    right: 2,
+                    bottom: 4,
+                    left: 2
+                }
             },
             scales: {
                 x: { display: false },
-                y: { display: false }
+                y: { display: false, min: 0, max: 100 }
             }
         },
-        plugins: [wavePlugin]
+        plugins: [signalPlugin]
     });
-    ;
 }

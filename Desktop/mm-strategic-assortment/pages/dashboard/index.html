@@ -1,144 +1,392 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MM Flow – Dashboard</title>
+    <meta charset="UTF-8" />
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    />
 
-    <link rel="stylesheet" href="../../shared/css/variables.css">
-    <link rel="stylesheet" href="../../shared/css/standard.css">
-    <link rel="stylesheet" href="../../shared/css/fonts.css">
-    <link rel="stylesheet" href="../../shared/css/assets.css">
-    <link rel="stylesheet" href="../../shared/css/form.css">
-    <link rel="stylesheet" href="../../shared/css/header_footer.css">
-    <link rel="stylesheet" href="./dashboard.css">
-    <link rel="stylesheet" href="../../shared/css/mm_theme.css">
+    <title>MM Strategic Assortment – Dashboard</title>
 
-    <link rel="icon" href="../../assets/icons/mm-flow-mark.svg" type="image/svg+xml">
+    <!-- Global CSS -->
+    <link rel="stylesheet" href="../../shared/css/variables.css" />
+    <link rel="stylesheet" href="../../shared/css/standard.css" />
+    <link rel="stylesheet" href="../../shared/css/fonts.css" />
+    <link rel="stylesheet" href="../../shared/css/assets.css" />
+    <link rel="stylesheet" href="../../shared/css/form.css" />
+    <link rel="stylesheet" href="../../shared/css/header_footer.css" />
+    <link rel="stylesheet" href="../../shared/css/mm_theme.css" />
 
+    <!-- Dashboard CSS kommt zuletzt -->
+    <link rel="stylesheet" href="./dashboard.css" />
+
+    <link
+        rel="icon"
+        href="../../assets/icons/media-markt-logo-png_seeklogo-90300.png"
+        type="image/png"
+    />
+
+    <!-- Global JavaScript -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="../../shared/js/config.js"></script>
     <script src="../../shared/js/auth.js"></script>
     <script src="../../shared/js/ui_helper.js"></script>
     <script src="../../shared/js/api.js"></script>
     <script src="../../shared/js/header.js"></script>
+
+    <!-- Dashboard JavaScript -->
     <script src="./dashboard_charts.js"></script>
     <script src="./dashboard.js"></script>
 
-</head>
-<body onload="init(); setHeader()">
-    <header class="main_header w_full"><img onclick="redirectToDashboard()" src="../../assets/icons/mm-flow-logo.svg" alt="MM Flow – Strategic Assortment" height="48"> <div id="head_content_right" class="d_flex_cc_gm head_content_right"></div></header>
-    <main class="w_full">
-        
-        <h1 class="dashboard_title font_prime_color" id="welcome_message"></h1>
-        <section class="dashboard_stats_section">
-            <section class="stats w_full">
-                <article class="card stat-card ">
-                    <h2 class="card_title">Tasks currently done (last 2 weeks)</h2>
-                    <figure class="wavechart_container">
-                        <canvas class="wavechart" id="waveChart"></canvas>
-                        <!-- <figcaption></figcaption> -->
-                    </figure>
-                    
-                </article>
-                <article class="card stat-card d_flex_sc_gl f_d_c">
-                    <h2 class="card_title d_flex_sc_gm">
-                        <img src="../../assets/icons/high_prio_colored.svg" alt="">Urgent to do
-                    </h2>
-                    <section class="d_flex_cs_gm d_sb f_d_r w_full">
-                        <div class="card_content card_content_left d_flex_cc_gm">
-                            <p class="font_white_color fontw_bold fs_l" id="high_prio_count">n/a</p>
-                            <p class="font_white_color">Task</p>
-                        </div>
-                        <div class="divider"></div>
-                        <div class="card_content d_flex_cs_gm">
-                            <p class="font_prime_color fontw_bold fs_l" id="upcoming_deadline">n/a</p>
-                            <p class="font_white_color">Upcoming deadline</p>
-                        </div>
-                    </section>
-                </article>
-                <article class="card stat-card d_flex_sc_gl f_d_c">
-                    <h2 class="card_title">Your Tasks</h2>
-                    <div class="card_content d_flex_cc_gm">
-                        <p class="font_white_color fontw_bold fs_l" id="dashboard_task_count">n/a</p>
-                        <p class="font_white_color">Assigned to you</p>
-                    </div>
-                </article>
-                <article class="card stat-card d_flex_sc_gl f_d_c">
-                    <h2 class="card_title">Member of</h2>
-                    <div class="card_content d_flex_cc_gm">
-                        <p class="font_white_color fontw_bold fs_l" id="dashboard_member_count">n/a</p>
-                        <p class="font_white_color">Boards</p>
-                    </div>
-                </article>
-            </section>
-    
-            <section class="card d_flex_sc_gl f_d_c">
+    <script>
+        /**
+         * Öffnet immer die aktuelle Dashboard-Startseite.
+         *
+         * Weil sich diese HTML-Datei bereits in pages/dashboard befindet,
+         * muss nur ./index.html verwendet werden.
+         */
+        function openDashboardHome() {
+            window.location.href = "./index.html";
+        }
 
-                <h2 class="card_title">Tickets Distribution</h2>
-                    <figure class="ticketsChart_container">
-                        <canvas class="ticketsChart" id="ticketsChart"></canvas>
-                        <!-- <figcaption>Fortschrittsdiagramm für erledigte Aufgaben</figcaption> -->
-                    </figure>
-            </section>
-    
-            <section class="card d_flex_ss_gl f_d_c">
-                <header class="card_header_w_btn"> 
-                    <h2 class="card_title">Your boards</h2> 
-                    <button onclick="redirectToBoards()" class="std_btn btn_prime d_flex_sc_gs">
-                        <img src="../../assets/icons/view_board.svg" alt="" srcset="">
-                        Boards
+        /**
+         * Initialisiert Dashboard und Header.
+         */
+        async function initializeDashboardPage() {
+            try {
+                setHeader();
+
+                if (typeof init === "function") {
+                    await init();
+                }
+            } catch (error) {
+                console.error(
+                    "Dashboard initialization failed:",
+                    error
+                );
+            }
+        }
+    </script>
+</head>
+
+<body
+    class="dashboard-page"
+    onload="initializeDashboardPage()"
+>
+    <header class="main_header dashboard-header w_full">
+        <button
+            class="dashboard-brand"
+            type="button"
+            onclick="openDashboardHome()"
+            aria-label="Open MM Strategic Assortment dashboard"
+        >
+            <span
+                class="dashboard-brand-crop"
+                aria-hidden="true"
+            >
+                <img
+                    class="dashboard-brand-image"
+                    src="../../assets/icons/media-markt-logo-png_seeklogo-90300.png"
+                    alt=""
+                />
+            </span>
+        </button>
+
+        <div
+            id="head_content_right"
+            class="d_flex_cc_gm head_content_right"
+        ></div>
+    </header>
+
+    <main class="dashboard-main w_full">
+        <section
+            class="dashboard-hero"
+            aria-labelledby="welcome_message"
+        >
+            <div class="dashboard-hero-copy">
+                <p class="dashboard-eyebrow">
+                    Internal operations · CH / AT
+                </p>
+
+                <h1
+                    class="dashboard-title"
+                    id="welcome_message"
+                >
+                    Welcome back
+                </h1>
+
+                <p class="dashboard-subtitle">
+                    Priorities, progress and assortment work in one clear view.
+                </p>
+            </div>
+
+            <div
+                class="dashboard-live-status"
+                aria-label="Workspace status"
+            >
+                <span
+                    class="dashboard-live-dot"
+                    aria-hidden="true"
+                ></span>
+
+                <span>Workspace live</span>
+            </div>
+        </section>
+
+        <section
+            class="dashboard-kpis"
+            aria-label="Dashboard overview"
+        >
+            <article class="dashboard-card dashboard-card-progress">
+                <header class="dashboard-card-heading">
+                    <div>
+                        <p class="dashboard-card-kicker">
+                            Last 2 weeks
+                        </p>
+
+                        <h2>Completion progress</h2>
+                    </div>
+
+                    <span
+                        class="dashboard-card-index"
+                        aria-hidden="true"
+                    >
+                        Progress
+                    </span>
+                </header>
+
+                <figure class="wavechart_container">
+                    <canvas
+                        class="wavechart"
+                        id="waveChart"
+                        aria-label="Percentage of completed assigned tasks"
+                        role="img"
+                    ></canvas>
+                </figure>
+            </article>
+
+            <article class="dashboard-card dashboard-card-urgent">
+                <header class="dashboard-card-heading">
+                    <div>
+                        <p class="dashboard-card-kicker">
+                            Needs attention
+                        </p>
+
+                        <h2>Urgent work</h2>
+                    </div>
+
+                    <span
+                        class="dashboard-alert-mark"
+                        aria-hidden="true"
+                    >
+                        !
+                    </span>
+                </header>
+
+                <div class="dashboard-urgent-content">
+                    <div class="dashboard-number-block">
+                        <strong id="high_prio_count">0</strong>
+                        <span>High-priority tasks</span>
+                    </div>
+
+                    <div class="dashboard-deadline-block">
+                        <span>Next deadline</span>
+
+                        <strong id="upcoming_deadline">
+                            No upcoming deadline
+                        </strong>
+                    </div>
+                </div>
+            </article>
+
+            <article class="dashboard-card dashboard-card-metric">
+                <span
+                    class="dashboard-metric-symbol"
+                    aria-hidden="true"
+                >
+                    ✓
+                </span>
+
+                <div>
+                    <strong id="dashboard_task_count">0</strong>
+                    <p>Tasks assigned to you</p>
+                </div>
+            </article>
+
+            <article class="dashboard-card dashboard-card-metric">
+                <span
+                    class="dashboard-metric-symbol"
+                    aria-hidden="true"
+                >
+                    ◎
+                </span>
+
+                <div>
+                    <strong id="dashboard_member_count">0</strong>
+                    <p>Boards you collaborate on</p>
+                </div>
+            </article>
+        </section>
+
+        <section
+            class="dashboard-insights"
+            aria-label="Task and board insights"
+        >
+            <article class="dashboard-card dashboard-chart-card">
+                <header class="dashboard-card-heading">
+                    <div>
+                        <p class="dashboard-card-kicker">
+                            Assigned work
+                        </p>
+
+                        <h2>Task distribution</h2>
+                    </div>
+
+                    <span
+                        class="dashboard-card-index"
+                        aria-hidden="true"
+                    >
+                        Status
+                    </span>
+                </header>
+
+                <figure class="ticketsChart_container">
+                    <canvas
+                        class="ticketsChart"
+                        id="ticketsChart"
+                        aria-label="Assigned tasks grouped by status"
+                        role="img"
+                    ></canvas>
+                </figure>
+            </article>
+
+            <article class="dashboard-card dashboard-boards-card">
+                <header
+                    class="
+                        dashboard-card-heading
+                        dashboard-card-heading-action
+                    "
+                >
+                    <div>
+                        <p class="dashboard-card-kicker">
+                            Your workspace
+                        </p>
+
+                        <h2>Boards</h2>
+                    </div>
+
+                    <button
+                        class="dashboard-action-button"
+                        type="button"
+                        onclick="redirectToBoards()"
+                    >
+                        View all boards
+                        <span aria-hidden="true">↗</span>
                     </button>
                 </header>
-                <ul class="arrow_list d_flex_ss_gm f_d_c" id="dashboard_boardlist">
-                </ul>
-            </section>
+
+                <ul
+                    class="dashboard-board-list"
+                    id="dashboard_boardlist"
+                    aria-live="polite"
+                ></ul>
+            </article>
         </section>
 
-        <section class="card dashboard_tasks_section d_flex_sc_gl f_d_c w_full">
-           
-            <header class="card_header_w_btn"> 
-                <h2 class="card_title">Tasks Insights</h2> 
-                <div class="switch" onclick="toggleTicketsTypeSwitch(this)">
-                    <div class="switch-button"></div>
-                </div></header>
-            <table class="responsive-table">
-                <thead>
-                    <tr>
-                        <th>Title</th>
-                        <th>Due Date</th>
-                        <th>Prio</th>
-                        <th>Status</th>
-                        <th class="text_a_c">Comments</th>
-                        <th>Assignee</th>
-                    </tr>
-                </thead>
-                <tbody class="" id="dashboard_tasklist">
-                </tbody>
-            </table>
-            
-            
+        <section class="dashboard-card dashboard-tasks-section">
+            <header class="dashboard-table-header">
+                <div>
+                    <p class="dashboard-card-kicker">
+                        Operational detail
+                    </p>
+
+                    <h2>Task insights</h2>
+                </div>
+
+                <div class="dashboard-filter-control">
+                    <span>Assigned</span>
+
+                    <button
+                        class="switch"
+                        type="button"
+                        role="switch"
+                        aria-checked="false"
+                        aria-label="Show tasks awaiting your review"
+                        onclick="toggleTicketsTypeSwitch(this)"
+                    >
+                        <span class="switch-button"></span>
+                    </button>
+
+                    <span>Review</span>
+                </div>
+            </header>
+
+            <div class="dashboard-table-scroll">
+                <table class="responsive-table dashboard-table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Due date</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th class="text_c">Comments</th>
+                            <th>Assignee</th>
+                        </tr>
+                    </thead>
+
+                    <tbody
+                        id="dashboard_tasklist"
+                        aria-live="polite"
+                    ></tbody>
+                </table>
+            </div>
         </section>
     </main>
-    <footer class="main_footer w_full">
-    <!-- Zeile 1: Privacy / Imprint -->
-    <nav class="d_flex_cs_gl">
-        <a href="../privacy/index.html" class="link">Privacy Policy</a>
-        <a href="../imprint/index.html"  class="link">Imprint</a>
-    </nav>
+
+    <footer class="main_footer dashboard-footer w_full">
+        <nav
+            class="dashboard-legal-nav"
+            aria-label="Legal information"
+        >
+            <a
+                href="../privacy/index.html"
+                class="link"
+            >
+                Privacy Policy
+            </a>
+
+            <a
+                href="../imprint/index.html"
+                class="link"
+            >
+                Imprint
+            </a>
+        </nav>
+
+        <p>
+            MM Strategic Assortment · Internal workspace
+        </p>
     </footer>
 
-    <!-- Zeile 2: Auto‑scrollendes Portfolio‑Marquee -->
-    <div class="portfolio-box">
-        <ul class="portfolio-track" aria-label="MM Flow modules">
-            <li>STRATEGIC ASSORTMENT</li><li>TOP / VP</li><li>VOLUME PRESENTATION</li>
-            <li>SHELF PRESENTATION</li><li>SERVICES</li><li>MIN-FILL</li>
-            <li>BOOKLET REVIEW</li><li>FLAG CHECK</li><li>FINAL CHECK</li><li>CH / AT</li>
-            <li>STRATEGIC ASSORTMENT</li><li>TOP / VP</li><li>VOLUME PRESENTATION</li>
-            <li>SHELF PRESENTATION</li><li>SERVICES</li><li>MIN-FILL</li>
-            <li>BOOKLET REVIEW</li><li>FLAG CHECK</li><li>FINAL CHECK</li><li>CH / AT</li>
+    <aside
+        class="portfolio-box"
+        aria-label="How we work"
+    >
+        <ul class="portfolio-track">
+            <li>Customer first</li>
+            <li>Take ownership</li>
+            <li>Keep it simple</li>
+            <li>Win together</li>
+            <li>Act with courage</li>
+            <li>Learn and adapt</li>
+            <li>Build trust</li>
+            <li>Deliver impact</li>
+            <li>Think end to end</li>
+            <li>Execute with excellence</li>
         </ul>
-    </div>
-
+    </aside>
 </body>
+
 </html>

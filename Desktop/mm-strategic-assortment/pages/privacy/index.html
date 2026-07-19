@@ -3,8 +3,12 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MM Flow – Privacy Policy</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    />
+
+    <title>MM Strategic Assortment – Privacy Policy</title>
 
     <link rel="stylesheet" href="../../shared/css/variables.css" />
     <link rel="stylesheet" href="../../shared/css/standard.css" />
@@ -12,8 +16,41 @@
     <link rel="stylesheet" href="../../shared/css/assets.css" />
     <link rel="stylesheet" href="../../shared/css/header_footer.css" />
     <link rel="stylesheet" href="../../shared/css/mm_theme.css" />
+
+    <link
+        rel="icon"
+        href="../../assets/icons/media-markt-logo-png_seeklogo-90300.png"
+        type="image/png"
+    />
+
     <style>
-        .font_yellow_light_color { color: #ffe066; }
+        .legal_logo {
+            width: clamp(180px, 20vw, 250px);
+            height: 50px;
+            object-fit: contain;
+            object-position: left center;
+            cursor: pointer;
+        }
+
+        .legal_address {
+            font-style: normal;
+        }
+
+        .legal_contact_label,
+        .legal_contact_link,
+        .legal_contact_link:visited {
+            color: var(--mm-red, #df0000) !important;
+        }
+
+        .legal_contact_link:hover {
+            color: #ff2a1a !important;
+            text-decoration: underline;
+        }
+
+        .legal_date {
+            color: var(--mm-red, #df0000) !important;
+            font-weight: 700;
+        }
     </style>
 
     <script src="../../shared/js/ui_helper.js"></script>
@@ -22,139 +59,432 @@
 
     <script>
         function checkNav() {
-            if (getAuthUserId() == null) document.querySelector("nav").remove();
+            const breadcrumb = document.getElementById("legal_breadcrumb");
+
+            if (
+                typeof getAuthUserId !== "function" ||
+                getAuthUserId() == null
+            ) {
+                breadcrumb?.remove();
+            }
         }
     </script>
 </head>
 
-<body onload="setHeader();checkNav()">
-    <header onclick="redirectToDashboard()" class="main_header w_full">
-        <img onclick="redirectToDashboard()" src="../../assets/icons/mm-flow-logo.svg" alt="MM Flow – Strategic Assortment" height="48" />
-        <div id="head_content_right" class="d_flex_cc_gm head_content_right"></div>
+<body onload="setHeader(); checkNav();">
+    <header class="main_header w_full">
+        <img
+            class="legal_logo"
+            onclick="redirectToDashboard()"
+            src="../../assets/icons/media-markt-logo-png_seeklogo-90300.png"
+            alt="MediaMarkt – MM Strategic Assortment"
+        />
+
+        <div
+            id="head_content_right"
+            class="d_flex_cc_gm head_content_right"
+        ></div>
     </header>
 
     <main class="w_full d_flex_ss_gl font_white_color">
+        <nav
+            id="legal_breadcrumb"
+            class="font_sec_color w_full"
+            aria-label="Breadcrumb"
+        >
+            <a
+                class="link_secondary"
+                href="../dashboard/"
+            >
+                Dashboard
+            </a>
 
-        <nav class="font_sec_color w_full">
-            <a class="link_secondary" href="../dashboard/">Dashboard</a> /
-            <a class="link_secondary" href="./index.html">Privacy Policy</a>
+            /
+
+            <a
+                class="link_secondary"
+                href="./index.html"
+                aria-current="page"
+            >
+                Privacy Policy
+            </a>
         </nav>
 
         <h1 class="font_prime_color">Privacy Policy</h1>
 
         <section class="d_flex_ss_gm f_d_c">
-            <h2>Privacy Policy</h2>
-            <p class="font_sec_color">Effective date: 30. Dezember 2025</p>
+            <h2>1. Controller and Contact</h2>
+
+            <address class="legal_address">
+                <p>
+                    The controller responsible for processing personal data
+                    within the MM Strategic Assortment application is:
+                </p>
+
+                <p>
+                    <strong>Media Markt Saturn Switzerland AG</strong>
+                </p>
+
+                <p>Allmendstrasse 23</p>
+                <p>8953 Dietikon</p>
+                <p>Switzerland</p>
+
+                <p>
+                    <strong class="legal_contact_label">Email:</strong>
+
+                    <a
+                        class="legal_contact_link"
+                        href="mailto:rullanil@mediamarkt.ch"
+                    >
+                        rullanil@mediamarkt.ch
+                    </a>
+                </p>
+            </address>
+        </section>
+
+        <section class="d_flex_ss_gm f_d_c">
+            <h2>2. Scope</h2>
+
             <p>
-                This Privacy Policy explains how we collect, use, and safeguard your information when you use our
-                application and its related backend services (the “Service”).
+                This Privacy Policy applies to the internal MM Strategic
+                Assortment web application and its related backend services.
             </p>
 
-            <h3>Controller</h3>
-            <div style="font-style: normal;">
-                <p><strong>BBM Productions AG</strong></p>
-                <p>Rheinststrasse 74, 4323 Wallbach, Switzerland</p>
-                <p>Phone 1: <a class="font_yellow_light_color" href="tel:+41764885610">+41 76 488 56 10</a></p>
-                <p>Phone 2: <a class="font_yellow_light_color" href="tel:+41562100740">+41 56 210 07 40</a></p>
-                <p>Email 1: <a class="font_yellow_light_color" href="mailto:leugzim.rullani@bbmproductions.ch">leugzim.rullani@bbmproductions.ch</a></p>
-                <p>Email 2: <a class="font_yellow_light_color" href="mailto:info@bbmproductions.ch">info@bbmproductions.ch</a></p>
-                <p><strong>Data Protection Officer:</strong> Leugzim Rullani</p>
-            </div>
-
-            <h3>Scope</h3>
             <p>
-                This Policy applies to all use of the Service, including our web application and backend systems.
+                The application is intended exclusively for authorised business
+                users. It supports internal assortment planning, alignment,
+                execution, collaboration and documentation.
+            </p>
+        </section>
+
+        <section class="d_flex_ss_gm f_d_c">
+            <h2>3. Personal Data We Process</h2>
+
+            <p>
+                Depending on the use and technical configuration of the
+                application, the following categories of personal data may be
+                processed:
             </p>
 
-            <h3>Personal Data We Process</h3>
             <ul>
-                <li><strong>Account data:</strong> your full name, email address, and a hashed password.</li>
-                <li><strong>Content you create or upload:</strong> e.g., tasks, boards, comments, and attachments.</li>
-                <li><strong>Communications:</strong> messages you send to us (e.g., support requests by email or phone).</li>
-            </ul>
-            <p class="font_sec_color">
-                We do not intend to collect special categories of personal data. Please refrain from sharing such information in the Service.
-            </p>
+                <li>
+                    <strong>Account information:</strong>
+                    name, business email address, user ID, assigned role and
+                    access permissions.
+                </li>
 
-            <h3>Purposes of Processing</h3>
+                <li>
+                    <strong>Authentication information:</strong>
+                    information and session data required to sign in and protect
+                    user accounts.
+                </li>
+
+                <li>
+                    <strong>Application content:</strong>
+                    boards, tasks, assortment decisions, comments, attachments,
+                    assignments and status changes.
+                </li>
+
+                <li>
+                    <strong>Activity information:</strong>
+                    change history, timestamps and actions associated with a
+                    user account.
+                </li>
+
+                <li>
+                    <strong>Technical information:</strong>
+                    browser or device information, error records, login events
+                    and security-relevant system logs.
+                </li>
+
+                <li>
+                    <strong>Support communications:</strong>
+                    information submitted when requesting assistance or
+                    reporting a problem.
+                </li>
+            </ul>
+
+            <p>
+                Users must not enter sensitive personal data into the
+                application unless this is expressly authorised and required
+                for an approved business purpose.
+            </p>
+        </section>
+
+        <section class="d_flex_ss_gm f_d_c">
+            <h2>4. Purposes of Processing</h2>
+
+            <p>Personal data may be processed to:</p>
+
             <ul>
-                <li>Provide, operate, and maintain the Service;</li>
-                <li>Authenticate users and secure accounts;</li>
-                <li>Enable collaboration and notifications (e.g., comment notifications by email);</li>
-                <li>Respond to inquiries and provide support;</li>
-                <li>Comply with legal obligations and protect our rights.</li>
-            </ul>
+                <li>Create, manage and secure user accounts.</li>
 
-            <h3>Legal Bases</h3>
+                <li>
+                    Provide the functions of the MM Strategic Assortment
+                    application.
+                </li>
+
+                <li>
+                    Support assortment planning, alignment, execution and
+                    documentation.
+                </li>
+
+                <li>
+                    Assign responsibilities and maintain a traceable change
+                    history.
+                </li>
+
+                <li>
+                    Enable collaboration, comments, notifications and internal
+                    communication.
+                </li>
+
+                <li>
+                    Provide technical support and resolve errors.
+                </li>
+
+                <li>
+                    Protect the application, company information and users
+                    against misuse or unauthorised access.
+                </li>
+
+                <li>
+                    Meet applicable legal, regulatory and internal governance
+                    obligations.
+                </li>
+
+                <li>
+                    Establish, exercise or defend legal claims where necessary.
+                </li>
+            </ul>
+        </section>
+
+        <section class="d_flex_ss_gm f_d_c">
+            <h2>5. Legal Framework</h2>
+
+            <p>
+                Personal data is processed in accordance with applicable Swiss
+                data protection law, including the Swiss Federal Act on Data
+                Protection.
+            </p>
+
+            <p>
+                Processing takes place where it is necessary to operate and
+                secure the application, perform employment-related or
+                contractual responsibilities, comply with legal obligations or
+                pursue legitimate business interests.
+            </p>
+
+            <p>
+                Where consent is legally required for a specific processing
+                activity, consent will be requested separately.
+            </p>
+
+            <p>
+                Where European data protection law applies, processing may
+                additionally be based on contract performance, legal
+                obligations, legitimate interests or consent, depending on the
+                relevant activity.
+            </p>
+        </section>
+
+        <section class="d_flex_ss_gm f_d_c">
+            <h2>6. Access and Recipients</h2>
+
+            <p>
+                Personal data is accessible only to persons who require access
+                for an authorised business purpose.
+            </p>
+
+            <p>This may include:</p>
+
             <ul>
-                <li><strong>Switzerland (FADP/DSG):</strong> processing in accordance with the principles of good faith, proportionality, purpose limitation, and transparency for the purposes described above.</li>
-                <li><strong>EEA/UK (GDPR, if applicable):</strong> performance of a contract (Art. 6(1)(b)), compliance with legal obligations (Art. 6(1)(c)), our legitimate interests in providing a secure and reliable Service (Art. 6(1)(f)), and consent where required for optional features (Art. 6(1)(a)).</li>
+                <li>Authorised employees and responsible managers.</li>
+                <li>Application and system administrators.</li>
+                <li>Internal support and governance functions.</li>
+
+                <li>
+                    Approved IT and service providers acting under appropriate
+                    confidentiality and data-processing obligations.
+                </li>
             </ul>
 
-            <h3>Sharing of Personal Data</h3>
-            <p>We do not sell your data. We share personal data only with:</p>
+            <p>
+                Personal data may also be disclosed if required by law, by a
+                competent authority or for the establishment, exercise or
+                defence of legal claims.
+            </p>
+
+            <p>
+                Personal data processed through this application is not sold.
+            </p>
+        </section>
+
+        <section class="d_flex_ss_gm f_d_c">
+            <h2>7. International Data Transfers</h2>
+
+            <p>
+                If personal data is transferred to, stored in or made accessible
+                from a country outside Switzerland, the transfer will take
+                place only where permitted by applicable law.
+            </p>
+
+            <p>
+                Where required, appropriate safeguards may include an adequacy
+                decision, recognised contractual clauses or another legally
+                permitted transfer mechanism.
+            </p>
+        </section>
+
+        <section class="d_flex_ss_gm f_d_c">
+            <h2>8. Retention</h2>
+
+            <p>
+                Personal data is retained only for as long as necessary for the
+                purposes described in this Privacy Policy or as required by
+                applicable legal, contractual and internal record-keeping
+                obligations.
+            </p>
+
+            <p>
+                Retention periods may depend on the user-account lifecycle,
+                business requirements, security requirements, statutory
+                obligations and the need to resolve disputes or protect legal
+                claims.
+            </p>
+
+            <p>
+                Data that is no longer required will be deleted, anonymised or
+                otherwise handled in accordance with applicable requirements.
+            </p>
+        </section>
+
+        <section class="d_flex_ss_gm f_d_c">
+            <h2>9. Browser Storage and Sessions</h2>
+
+            <p>
+                The application may use technically necessary browser storage,
+                authentication tokens or session information to provide login,
+                security and core application functionality.
+            </p>
+
+            <p>
+                These technologies are intended to operate and secure the
+                application and are not intended for advertising or cross-site
+                tracking.
+            </p>
+        </section>
+
+        <section class="d_flex_ss_gm f_d_c">
+            <h2>10. Data Security</h2>
+
+            <p>
+                Appropriate technical and organisational measures are used to
+                protect personal data against unauthorised access, accidental
+                loss, misuse, alteration or disclosure.
+            </p>
+
+            <p>
+                Access is restricted according to business responsibilities and
+                is granted only to authorised users.
+            </p>
+
+            <p>
+                No electronic system can guarantee absolute security. Users
+                must therefore protect their credentials, follow internal
+                security requirements and report suspected misuse or security
+                incidents without delay.
+            </p>
+        </section>
+
+        <section class="d_flex_ss_gm f_d_c">
+            <h2>11. Your Rights</h2>
+
+            <p>
+                Subject to applicable law and its limitations, individuals may
+                have the right to:
+            </p>
+
             <ul>
-                <li>Trusted service providers (e.g., hosting, email delivery) under confidentiality and data processing obligations;</li>
-                <li>Authorities or third parties when required by law or to protect legal rights;</li>
-                <li>Entities involved in a business transaction (e.g., merger or reorganization) with appropriate safeguards.</li>
+                <li>
+                    Request information about the processing of their personal
+                    data.
+                </li>
+
+                <li>Request access to their personal data.</li>
+
+                <li>
+                    Request the correction of inaccurate or incomplete personal
+                    data.
+                </li>
+
+                <li>
+                    Request deletion or destruction where legally permitted.
+                </li>
+
+                <li>
+                    Object to or request restriction of certain processing
+                    activities.
+                </li>
+
+                <li>
+                    Request the release or transfer of certain personal data in
+                    a portable format where applicable.
+                </li>
+
+                <li>
+                    Withdraw consent for future processing where processing is
+                    based on consent.
+                </li>
             </ul>
 
-            <h3>International Data Transfers</h3>
             <p>
-                If personal data is transferred outside Switzerland/EEA/UK, we rely on recognized safeguards such as adequacy
-                decisions or standard contractual clauses.
+                Identity verification may be required before a request is
+                processed. Certain rights may be restricted where processing or
+                retention is required by law, necessary to protect overriding
+                interests or required for legal claims.
             </p>
 
-            <h3>Retention</h3>
             <p>
-                We retain personal data only as long as necessary for the purposes described, to comply with legal
-                obligations, or to resolve disputes. If you delete your account, we delete or anonymize your personal data
-                unless retention is required by law or for legitimate business purposes (e.g., system backups).
+                Requests can be submitted using the contact information in
+                Section 1.
             </p>
 
-            <h3>Security</h3>
             <p>
-                We implement appropriate technical and organizational measures to protect personal data against
-                unauthorized access, alteration, loss, or disclosure. No method of transmission or storage is 100% secure,
-                and we cannot guarantee absolute security.
+                Individuals may also contact the Swiss Federal Data Protection
+                and Information Commissioner if they believe their data
+                protection rights have been infringed.
+            </p>
+        </section>
+
+        <section class="d_flex_ss_gm f_d_c">
+            <h2>12. Changes to This Privacy Policy</h2>
+
+            <p>
+                This Privacy Policy may be updated when the application, its
+                data-processing activities or applicable legal requirements
+                change.
             </p>
 
-            <h3>Your Rights</h3>
             <p>
-                Subject to applicable law, you may request access, rectification, erasure, restriction, and portability of
-                your personal data; object to processing based on legitimate interests; and withdraw consent at any time.
-                You may also lodge a complaint with a supervisory authority, such as the Swiss Federal Data Protection and
-                Information Commissioner (FDPIC) or your local data protection authority in the EEA/UK.
+                The current version will be made available within the
+                application.
             </p>
 
-            <h3>Children’s Privacy</h3>
-            <p>
-                The Service is not directed to children under 16. We do not knowingly collect personal data from children
-                under 16. If you believe a child has provided us with personal data, please contact us so we can take
-                appropriate action.
+            <p class="legal_date">
+                Created: 30 September 2026
             </p>
-
-            <h3>Changes to this Policy</h3>
-            <p>
-                We may update this Privacy Policy from time to time. We will post the updated version with a new effective date.
-            </p>
-
-            <h3>Contact</h3>
-            <div style="font-style: normal;">
-                <p><strong>BBM Productions AG</strong></p>
-                <p>Rheinststrasse 74, 4323 Wallbach</p>
-                <p>Phone 1: <a class="font_yellow_light_color" href="tel:+41764885610">+41 76 488 56 10</a></p>
-                <p>Phone 2: <a class="font_yellow_light_color" href="tel:+41562100740">+41 56 210 07 40</a></p>
-                <p>Email 1: <a class="font_yellow_light_color" href="mailto:leugzim.rullani@bbmproductions.ch">leugzim.rullani@bbmproductions.ch</a></p>
-                <p>Email 2: <a class="font_yellow_light_color" href="mailto:info@bbmproductions.ch">info@bbmproductions.ch</a></p>
-                <p>Data Protection Officer: Leugzim Rullani</p>
-            </div>
         </section>
     </main>
 
     <footer class="main_footer w_full">
         <nav class="d_flex_cs_gl">
-            <a href="../imprint/index.html" class="link">Imprint</a>
+            <a
+                href="../imprint/index.html"
+                class="link"
+            >
+                Imprint
+            </a>
         </nav>
     </footer>
 </body>

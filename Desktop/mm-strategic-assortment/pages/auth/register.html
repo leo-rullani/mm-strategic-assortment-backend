@@ -2,111 +2,322 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MM Flow – Sign up</title>
+    <meta charset="UTF-8" />
 
-  <!-- bestehende Styles -->
-  <link rel="stylesheet" href="../../shared/css/variables.css" />
-  <link rel="stylesheet" href="../../shared/css/standard.css" />
-  <link rel="stylesheet" href="../../shared/css/fonts.css" />
-  <link rel="stylesheet" href="../../shared/css/assets.css" />
-  <link rel="stylesheet" href="../../shared/css/form.css" />
-  <link rel="stylesheet" href="../../shared/css/header_footer.css" />
-  <link rel="stylesheet" href="./auth.css" />
-  <link rel="stylesheet" href="../../shared/css/mm_theme.css" />
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    />
 
-  <link rel="icon" href="../../assets/icons/mm-flow-mark.svg" type="image/svg+xml" />
+    <title>MM Strategic Assortment – Sign up</title>
 
-  <!-- bestehende Scripts -->
-  <script src="../../shared/js/config.js"></script>
-  <script src="../../shared/js/ui_helper.js"></script>
-  <script src="../../shared/js/api.js"></script>
-  <script src="../../shared/js/auth.js"></script>
-  <script src="../../shared/js/header.js"></script>
+    <link
+        rel="stylesheet"
+        href="../../shared/css/variables.css"
+    />
 
-  <!-- ✨ Mouse‑Trail (gleiches Skript wie bei Login) -->
-  <script src="./mouse_trail.js" defer></script>
+    <link
+        rel="stylesheet"
+        href="../../shared/css/standard.css"
+    />
+
+    <link
+        rel="stylesheet"
+        href="../../shared/css/fonts.css"
+    />
+
+    <link
+        rel="stylesheet"
+        href="../../shared/css/assets.css"
+    />
+
+    <link
+        rel="stylesheet"
+        href="../../shared/css/form.css"
+    />
+
+    <link
+        rel="stylesheet"
+        href="../../shared/css/header_footer.css"
+    />
+
+    <!-- Allgemeines MediaMarkt-Theme zuerst -->
+    <link
+        rel="stylesheet"
+        href="../../shared/css/mm_theme.css"
+    />
+
+    <!-- Auth-Styles müssen zuletzt geladen werden -->
+    <link
+        rel="stylesheet"
+        href="./auth.css"
+    />
+
+    <link
+        rel="icon"
+        href="../../assets/icons/mm-flow-mark.svg"
+        type="image/svg+xml"
+    />
+
+    <script src="../../shared/js/config.js"></script>
+    <script src="../../shared/js/ui_helper.js"></script>
+    <script src="../../shared/js/api.js"></script>
+    <script src="../../shared/js/auth.js"></script>
+    <script src="../../shared/js/header.js"></script>
+
+    <script
+        src="./mouse_trail.js"
+        defer
+    ></script>
 </head>
 
 <body onload="setHeader()">
-  <!-- ✨ Trail‑Container -->
-  <div id="xy"></div>
+    <!-- Mouse-Trail -->
+    <div
+        id="xy"
+        aria-hidden="true"
+    ></div>
 
-  <header class="main_header w_full">
-    <img onclick="redirectToDashboard()" src="../../assets/icons/mm-flow-logo.svg" alt="MM Flow – Strategic Assortment" height="48" />
-    <div id="head_content_right" class="d_flex_cc_gm head_content_right"></div>
-  </header>
+    <!-- Header -->
+    <header class="main_header w_full">
+        <img
+            onclick="redirectToDashboard()"
+            src="../../assets/icons/media-markt-logo-png_seeklogo-90300.png"
+            alt="MediaMarkt – Strategic Assortment"
+        />
 
-  <main class="w_full d_flex_cc_gl">
-    <form onsubmit="signUpSubmit(event)" id="sign_up_form" class="std_form d_flex_cs_gl f_d_c" novalidate>
-      <h1 class="font_prime_color d_flex_cs_gl w_full">Sign up</h1>
-      <p class="font_white_color d_flex_cs_gl w_full">
-        Create your strategic assortment workspace.
-      </p>
+        <div
+            id="head_content_right"
+            class="d_flex_cc_gm head_content_right"
+        ></div>
+    </header>
 
-      <!-- Fullname -->
-      <div error="false" id="fullname_group" class="form_group_w_icon_wo_label w_full">
-        <img src="../../assets/icons/face_icon.svg" alt="Icon" />
-        <input onblur="validateFullname(this)" type="text" id="fullname" required autocomplete="name" />
-        <label for="fullname">Full name</label>
-        <p class="error_label">Enter your full name (e.g., Max Mustermann).</p>
-      </div>
+    <!-- Hauptbereich -->
+    <main class="w_full d_flex_cc_gl">
+        <form
+            onsubmit="signUpSubmit(event)"
+            id="sign_up_form"
+            class="std_form d_flex_cs_gl f_d_c"
+            novalidate
+        >
+            <h1 class="font_prime_color d_flex_cs_gl w_full">
+                Sign up
+            </h1>
 
-      <!-- Email -->
-      <div error="false" id="email_group" class="form_group_w_icon_wo_label w_full">
-        <img src="../../assets/icons/mail_icon.svg" alt="Icon" />
-        <input onblur="validateRegistrationEmail(this)" type="text" id="email" required autocomplete="email" />
-        <label for="email">Email</label>
-        <p class="error_label">Please enter a valid email address.</p>
-      </div>
+            <p class="font_white_color d_flex_cs_gl w_full">
+                Create your strategic assortment workspace.
+            </p>
 
-      <!-- Password -->
-      <div error="false" id="password_group" class="form_group_w_icon_wo_label w_full">
-        <img src="../../assets/icons/password_icon.svg" alt="Icon" />
-        <input onblur="validatePW(this)" type="password" id="password" required autocomplete="new-password" />
-        <label for="password">Password</label>
-        <img onclick="togglePassword(this)" class="password_eye" src="../../assets/icons/pw_visibility.svg" alt="" />
-        <p class="error_label">Password must be at least 8 characters long.</p>
-      </div>
+            <!-- Vollständiger Name -->
+            <div
+                error="false"
+                id="fullname_group"
+                class="form_group_w_icon_wo_label w_full"
+            >
 
-      <!-- Confirm PW -->
-      <div error="false" id="repeated_password_group" class="form_group_w_icon_wo_label w_full">
-        <img src="../../assets/icons/password_icon.svg" alt="Icon" />
-        <input onblur="validateConfirmPW(this)" type="password" id="repeated_password" required autocomplete="new-password" />
-        <label for="repeated_password">Confirm password</label>
-        <img onclick="togglePassword(this)" class="password_eye" src="../../assets/icons/pw_visibility.svg" alt="" />
-        <p class="error_label">Passwords do not match.</p>
-      </div>
+                <input
+                    onblur="validateFullname(this)"
+                    type="text"
+                    id="fullname"
+                    name="fullname"
+                    required
+                    autocomplete="name"
+                />
 
-      <!-- Privacy -->
-      <label error="false" id="privacy_policy_checkbox_group"
-             class="form_group_checkbox w_full custom_checkbox d_flex_ss_gs f_d_c">
-        <div class="d_flex_cs_gs">
-          <input onchange="validatePrivacyCheckbox(this)" type="checkbox" id="privacy_policy_checkbox" required />
-          <span class="checkbox_icon"></span>
-          <span class="font_white_color">
-            I have read and agree to the
-            <a class="link_prime" href="../privacy/index.html">Privacy Policy</a>
-          </span>
-        </div>
-        <p class="error_label w_full">Please accept the privacy policy</p>
-      </label>
+                <label for="fullname">
+                    Full name
+                </label>
 
-      <div class="d_flex_cc_gl f_d_r_resp_c w_full">
-        <button type="submit" class="std_btn btn_prime pad_s d_flex_cc_gs">
-          Sign up
-        </button>
-      </div>
-    </form>
-  </main>
+                <p class="error_label">
+                    Enter your full name (e.g., Max Mustermann).
+                </p>
+            </div>
 
-  <footer class="main_footer w_full">
-    <nav class="d_flex_cs_gl">
-      <a href="../privacy/index.html" class="link">Privacy Policy</a>
-      <a href="../imprint/index.html" class="link">Imprint</a>
-    </nav>
-  </footer>
+            <!-- E-Mail -->
+            <div
+                error="false"
+                id="email_group"
+                class="form_group_w_icon_wo_label w_full"
+            >
+                <img
+                    src="../../assets/icons/mail_icon.svg"
+                    alt=""
+                    aria-hidden="true"
+                />
+
+                <input
+                    onblur="validateRegistrationEmail(this)"
+                    type="text"
+                    id="email"
+                    name="email"
+                    required
+                    autocomplete="email"
+                />
+
+                <label for="email">
+                    Email
+                </label>
+
+                <p class="error_label">
+                    Please enter a valid email address.
+                </p>
+            </div>
+
+            <!-- Passwort -->
+            <div
+                error="false"
+                id="password_group"
+                class="form_group_w_icon_wo_label w_full"
+            >
+                <img
+                    src="../../assets/icons/password_icon.svg"
+                    alt=""
+                    aria-hidden="true"
+                />
+
+                <input
+                    onblur="validatePW(this)"
+                    type="password"
+                    id="password"
+                    name="password"
+                    required
+                    autocomplete="new-password"
+                />
+
+                <label for="password">
+                    Password
+                </label>
+
+                <img
+                    onclick="togglePassword(this)"
+                    class="password_eye"
+                    src="../../assets/icons/pw_visibility.svg"
+                    alt="Show or hide password"
+                />
+
+                <p class="error_label">
+                    Password must be at least 8 characters long.
+                </p>
+            </div>
+
+            <!-- Passwort bestätigen -->
+            <div
+                error="false"
+                id="repeated_password_group"
+                class="form_group_w_icon_wo_label w_full"
+            >
+                <img
+                    src="../../assets/icons/password_icon.svg"
+                    alt=""
+                    aria-hidden="true"
+                />
+
+                <input
+                    onblur="validateConfirmPW(this)"
+                    type="password"
+                    id="repeated_password"
+                    name="repeated_password"
+                    required
+                    autocomplete="new-password"
+                />
+
+                <label for="repeated_password">
+                    Confirm password
+                </label>
+
+                <img
+                    onclick="togglePassword(this)"
+                    class="password_eye"
+                    src="../../assets/icons/pw_visibility.svg"
+                    alt="Show or hide password"
+                />
+
+                <p class="error_label">
+                    Passwords do not match.
+                </p>
+            </div>
+
+            <!-- Datenschutzerklärung -->
+            <label
+                error="false"
+                id="privacy_policy_checkbox_group"
+                class="form_group_checkbox w_full custom_checkbox d_flex_ss_gs f_d_c"
+            >
+                <div class="d_flex_cs_gs">
+                    <input
+                        onchange="validatePrivacyCheckbox(this)"
+                        type="checkbox"
+                        id="privacy_policy_checkbox"
+                        name="privacy_policy_checkbox"
+                        required
+                    />
+
+                    <span
+                        class="checkbox_icon"
+                        aria-hidden="true"
+                    ></span>
+
+                    <span class="font_white_color">
+                        I have read and agree to the
+
+                        <a
+                            class="link_prime"
+                            href="../privacy/index.html"
+                        >
+                            Privacy Policy
+                        </a>
+                    </span>
+                </div>
+
+                <p class="error_label w_full">
+                    Please accept the privacy policy.
+                </p>
+            </label>
+
+            <!-- Registrierung -->
+            <div class="d_flex_cc_gl f_d_r_resp_c w_full">
+                <button
+                    type="submit"
+                    class="std_btn btn_prime pad_s d_flex_cc_gs"
+                >
+                    Sign up
+                </button>
+            </div>
+
+            <!-- Zurück zum Login -->
+            <div class="d_flex_cc_gl f_d_r_resp_c w_full">
+                <p class="font_white_color">
+                    Already registered?
+                </p>
+
+                <a
+                    href="./login.html"
+                    class="link_prime d_flex_cc_gm"
+                >
+                    Log in
+                </a>
+            </div>
+        </form>
+    </main>
+
+    <!-- Footer -->
+    <footer class="main_footer w_full">
+        <nav class="d_flex_cs_gl">
+            <a
+                href="../privacy/index.html"
+                class="link"
+            >
+                Privacy Policy
+            </a>
+
+            <a
+                href="../imprint/index.html"
+                class="link"
+            >
+                Imprint
+            </a>
+        </nav>
+    </footer>
 </body>
 
 </html>
