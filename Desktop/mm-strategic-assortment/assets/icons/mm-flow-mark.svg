@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
-  <title id="title">MM Flow</title>
-  <desc id="desc">Four connected cards forming a flowing M</desc>
-  <rect width="64" height="64" rx="16" fill="#df0000"/>
-  <path d="M14 19h15v11H14zM35 19h15v11H35zM14 36h15v9H14zM35 36h15v9H35z" fill="#fff"/>
-  <path d="M29 24h6M22 30v6M42 30v6M29 40h6" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
-</svg>
