@@ -34,9 +34,19 @@ def booklet_upload_path(instance, filename):
 # -------------------------------------------------------------------------
 class Board(models.Model):
     """Kanban‑Board mit Titel, Owner, Members."""
-    title = models.CharField(max_length=100, help_text="The title of the board (max. 100 characters).")
-    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="owned_boards", help_text="The user who owns this board.")
-    members = models.ManyToManyField(User, related_name="boards", help_text="Users who are members of this board.")
+
+    title = models.CharField(
+        max_length=100, help_text="The title of the board (max. 100 characters)."
+    )
+    owner = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="owned_boards",
+        help_text="The user who owns this board.",
+    )
+    members = models.ManyToManyField(
+        User, related_name="boards", help_text="Users who are members of this board."
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -48,26 +58,43 @@ class Board(models.Model):
 # -------------------------------------------------------------------------
 class Task(models.Model):
     """Einzelne Karte im Board."""
+
     board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="tasks")
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
 
     STATUS_CHOICES = [
-        ("to-do",       "To Do"),
+        ("to-do", "To Do"),
         ("in-progress", "In Progress"),
-        ("review",      "Review"),
-        ("done",        "Done"),
+        ("review", "Review"),
+        ("done", "Done"),
     ]
     status = models.CharField(max_length=30, choices=STATUS_CHOICES, default="to-do")
 
     PRIORITY_CHOICES = [("low", "Low"), ("medium", "Medium"), ("high", "High")]
-    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default="medium")
+    priority = models.CharField(
+        max_length=10, choices=PRIORITY_CHOICES, default="medium"
+    )
 
-    assignee = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="tasks_assigned")
-    reviewer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="tasks_reviewing")
+    assignee = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tasks_assigned",
+    )
+    reviewer = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="tasks_reviewing",
+    )
 
-    due_date   = models.DateField(null=True, blank=True)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="created_tasks")
+    due_date = models.DateField(null=True, blank=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="created_tasks"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -79,9 +106,12 @@ class Task(models.Model):
 # -------------------------------------------------------------------------
 class Comment(models.Model):
     """Thread‑Kommentar zu einem Task."""
+
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="comments")
-    author = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="comments")
-    text       = models.TextField()
+    author = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name="comments"
+    )
+    text = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -94,15 +124,20 @@ class Comment(models.Model):
 # -------------------------------------------------------------------------
 class Debriefing(models.Model):
     """Wöchentlicher SFL‑Rapport (Draft → Final → PDF)."""
+
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
         FINAL = "FINAL", "Final"
 
-    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="debriefings")
-    match_date   = models.DateField()
-    status       = models.CharField(max_length=8, choices=Status.choices, default=Status.DRAFT)
-    created_by   = models.ForeignKey(User, on_delete=models.PROTECT)
-    created_at   = models.DateTimeField(auto_now_add=True)
+    board = models.ForeignKey(
+        Board, on_delete=models.CASCADE, related_name="debriefings"
+    )
+    match_date = models.DateField()
+    status = models.CharField(
+        max_length=8, choices=Status.choices, default=Status.DRAFT
+    )
+    created_by = models.ForeignKey(User, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
 
     kick_off_ok = models.BooleanField(default=True)
@@ -116,15 +151,20 @@ class Debriefing(models.Model):
 # -------------------------------------------------------------------------
 class GraphicsRapport(models.Model):
     """Match‑bezogener GFX‑Rapport (Draft → Final → optional PDF)."""
+
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Draft"
         FINAL = "FINAL", "Final"
 
-    board = models.ForeignKey(Board, on_delete=models.CASCADE, related_name="graphics_rapports")
-    match_date   = models.DateField()
-    status       = models.CharField(max_length=8, choices=Status.choices, default=Status.DRAFT)
-    created_by   = models.ForeignKey(User, on_delete=models.PROTECT)
-    created_at   = models.DateTimeField(auto_now_add=True)
+    board = models.ForeignKey(
+        Board, on_delete=models.CASCADE, related_name="graphics_rapports"
+    )
+    match_date = models.DateField()
+    status = models.CharField(
+        max_length=8, choices=Status.choices, default=Status.DRAFT
+    )
+    created_by = models.ForeignKey(User, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
 
     graphics_test_ok = models.BooleanField(default=True)
@@ -141,6 +181,7 @@ class KVStore(models.Model):
     Sehr einfacher K/V‑Store pro Schlüssel.
     value ist JSON (dict/list/str/…).
     """
+
     key = models.CharField(max_length=200, unique=True)
     value = models.JSONField(default=dict, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -217,6 +258,86 @@ class BoardDocument(models.Model):
             f"{self.get_market_display()} · "
             f"{self.get_document_type_display()} "
             f"{self.period} ({self.board})"
+        )
+
+
+# -------------------------------------------------------------------------
+# Board tool data status
+# -------------------------------------------------------------------------
+class BoardToolStatus(models.Model):
+    """Centrally maintained freshness/status row for one board tool."""
+
+    class WeeklyStatus(models.TextChoices):
+        OPEN = "open", "Open"
+        IN_PROGRESS = "in-progress", "In progress"
+        DONE = "done", "Done"
+
+    board = models.ForeignKey(
+        Board,
+        on_delete=models.CASCADE,
+        related_name="tool_statuses",
+    )
+    market = models.CharField(
+        max_length=2,
+        choices=BoardDocument.Market.choices,
+    )
+    document_type = models.CharField(
+        max_length=50,
+        choices=BoardDocument.DocumentType.choices,
+    )
+    weekly_status = models.CharField(
+        max_length=20,
+        choices=WeeklyStatus.choices,
+        default=WeeklyStatus.OPEN,
+    )
+    last_data_update = models.CharField(max_length=80, blank=True, default="")
+    reference_date_flags = models.CharField(max_length=80, blank=True, default="")
+    price = models.CharField(max_length=80, blank=True, default="")
+    sales_date = models.CharField(max_length=80, blank=True, default="")
+    sku_view_units = models.CharField(max_length=80, blank=True, default="")
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_tool_statuses",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("market", "document_type")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("board", "market", "document_type"),
+                name="unique_board_tool_status",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(market__in=("CH", "AT")),
+                name="bts_market_valid",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    document_type__in=(
+                        "booklet",
+                        "review-model",
+                        "tracking-dashboard",
+                        "online",
+                    )
+                ),
+                name="bts_document_type_valid",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(weekly_status__in=("open", "in-progress", "done")),
+                name="bts_weekly_status_valid",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.get_market_display()} · "
+            f"{self.get_document_type_display()} · "
+            f"{self.get_weekly_status_display()} ({self.board})"
         )
 
 

@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import (
     Board,
     BoardDocument,
+    BoardToolStatus,
     Comment,
     Debriefing,
     GraphicsRapport,
@@ -10,27 +11,41 @@ from .models import (
     Task,
 )
 
+
 @admin.register(Board)
 class BoardAdmin(admin.ModelAdmin):
     list_display = ("id", "title", "owner", "created_at")
     search_fields = ("title", "owner__email")
 
+
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ("id", "title", "board", "status", "priority", "assignee", "reviewer")
-    list_filter  = ("status", "priority", "board")
+    list_display = (
+        "id",
+        "title",
+        "board",
+        "status",
+        "priority",
+        "assignee",
+        "reviewer",
+    )
+    list_filter = ("status", "priority", "board")
+
 
 @admin.register(Comment)
 class CommentAdmin(admin.ModelAdmin):
     list_display = ("id", "task", "author", "created_at")
 
+
 @admin.register(Debriefing)
 class DebriefingAdmin(admin.ModelAdmin):
     list_display = ("id", "board", "match_date", "status", "created_by", "created_at")
 
+
 @admin.register(GraphicsRapport)
 class GraphicsRapportAdmin(admin.ModelAdmin):
     list_display = ("id", "board", "match_date", "status", "created_by", "created_at")
+
 
 @admin.register(KVStore)
 class KVStoreAdmin(admin.ModelAdmin):
@@ -67,3 +82,19 @@ class BoardDocumentAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         """Keep uploads on the validated API path with its file lifecycle."""
         return False
+
+
+@admin.register(BoardToolStatus)
+class BoardToolStatusAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "board",
+        "market",
+        "document_type",
+        "weekly_status",
+        "updated_by",
+        "updated_at",
+    )
+    list_filter = ("market", "document_type", "weekly_status", "board")
+    search_fields = ("board__title", "updated_by__email")
+    readonly_fields = ("created_at", "updated_at")

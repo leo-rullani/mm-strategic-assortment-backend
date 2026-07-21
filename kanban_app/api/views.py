@@ -31,6 +31,7 @@ from rest_framework.exceptions import NotFound, PermissionDenied
 from kanban_app.models import (
     Board,
     BoardDocument,
+    BoardToolStatus,
     Task,
     Comment,
     Debriefing,
@@ -43,6 +44,8 @@ from .serializers import (
     BoardSerializer,
     BoardDocumentMetadataSerializer,
     BoardDocumentUploadSerializer,
+    BoardToolStatusInitializeItemSerializer,
+    BoardToolStatusSerializer,
     TaskSerializer,
     CommentSerializer,
     TaskListSerializer,
@@ -87,12 +90,15 @@ def boards_for_user(user):
         models.Q(owner=user) | models.Q(members=user)
     ).distinct()
 
+
 # ======================================================================
 # Boards
 # ======================================================================
 
+
 class BoardListCreateView(generics.ListCreateAPIView):
     """Listen/Erstellen der Boards, auf die der User Zugriff hat."""
+
     serializer_class = BoardSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = (TokenAuthentication, SessionAuthentication)
@@ -140,6 +146,7 @@ class BoardListCreateView(generics.ListCreateAPIView):
 
 class BoardDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Details/Update/Delete eines Boards."""
+
     queryset = Board.objects.all()
     serializer_class = BoardSerializer
     permission_classes = [IsAuthenticated]
@@ -148,16 +155,20 @@ class BoardDetailView(generics.RetrieveUpdateDestroyAPIView):
     def get(self, request, *args, **kwargs):
         board = self.get_object()
         if not user_can_access_board(request.user, board):
-            return Response({"detail": "No permission to view this board."},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "No permission to view this board."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         return super().get(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
         board = self.get_object()
         user = request.user
         if not self._has_update_permission(user, board):
-            return Response({"detail": "No permission to update this board."},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "No permission to update this board."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         data = request.data
         if "title" in data:
@@ -167,8 +178,10 @@ class BoardDetailView(generics.RetrieveUpdateDestroyAPIView):
             member_ids = data["members"]
             valid_members = User.objects.filter(id__in=member_ids)
             if valid_members.count() != len(member_ids):
-                return Response({"detail": "Invalid member IDs."},
-                                status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"detail": "Invalid member IDs."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             board.members.set(valid_members)
 
         board.save()
@@ -179,11 +192,15 @@ class BoardDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def _response_data(self, board: Board):
         owner = board.owner
-        owner_data = {
-            "id": owner.id,
-            "email": owner.email,
-            "fullname": getattr(owner, "full_name", str(owner)),
-        } if owner else None
+        owner_data = (
+            {
+                "id": owner.id,
+                "email": owner.email,
+                "fullname": getattr(owner, "full_name", str(owner)),
+            }
+            if owner
+            else None
+        )
 
         members_data = [
             {
@@ -203,13 +220,16 @@ class BoardDetailView(generics.RetrieveUpdateDestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         board = self.get_object()
         if not user_can_manage_board(request.user, board):
-            return Response({"detail": "No permission to delete this board."},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "No permission to delete this board."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         return super().destroy(request, *args, **kwargs)
 
 
 class BoardCurrentDraftView(APIView):
     """Gibt den offenen Debriefing‑Draft von heute zurück (oder erstellt ihn)."""
+
     permission_classes = [IsAuthenticated]
     authentication_classes = (TokenAuthentication, SessionAuthentication)
 
@@ -217,13 +237,14 @@ class BoardCurrentDraftView(APIView):
         board = get_object_or_404(Board, pk=pk)
         user = request.user
         if not user_can_access_board(user, board):
-            return Response({"detail": "No permission to access this board."},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "No permission to access this board."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         today = timezone.localdate()
         draft = (
-            Debriefing.objects
-            .filter(board=board, status=Debriefing.Status.DRAFT)
+            Debriefing.objects.filter(board=board, status=Debriefing.Status.DRAFT)
             .order_by("-created_at")
             .first()
         )
@@ -241,6 +262,7 @@ class BoardCurrentDraftView(APIView):
 # ======================================================================
 # Centrally stored board documents
 # ======================================================================
+
 
 class BoardDocumentListCreateView(APIView):
     """List, upload, or replace monthly HTML tool editions for one board."""
@@ -377,9 +399,7 @@ class BoardDocumentListCreateView(APIView):
             document,
             context={"request": request},
         )
-        response_status = (
-            status.HTTP_201_CREATED if created else status.HTTP_200_OK
-        )
+        response_status = status.HTTP_201_CREATED if created else status.HTTP_200_OK
         return Response(response_serializer.data, status=response_status)
 
     @staticmethod
@@ -399,15 +419,11 @@ class LegacyBoardBookletListCreateView(BoardDocumentListCreateView):
 
     def get(self, request, board_id):
         board = self._get_board(request, board_id)
-        documents = (
-            BoardDocument.objects
-            .filter(
-                board=board,
-                market=BoardDocument.Market.CH,
-                document_type=BoardDocument.DocumentType.BOOKLET,
-            )
-            .select_related("uploaded_by")
-        )
+        documents = BoardDocument.objects.filter(
+            board=board,
+            market=BoardDocument.Market.CH,
+            document_type=BoardDocument.DocumentType.BOOKLET,
+        ).select_related("uploaded_by")
         serializer = BoardDocumentMetadataSerializer(
             documents,
             many=True,
@@ -459,21 +475,171 @@ class DocumentContentView(APIView):
         response["Cache-Control"] = "private, no-store"
         return response
 
+
+# ======================================================================
+# Centrally stored board tool status
+# ======================================================================
+
+
+class BoardToolStatusBoardMixin:
+    """Resolve one board and enforce the same collaboration permissions."""
+
+    def _get_board(self, request, board_id):
+        board = get_object_or_404(Board, pk=board_id)
+        if not user_can_access_board(request.user, board):
+            raise PermissionDenied(
+                "No permission to access tool status for this board."
+            )
+        return board
+
+    @staticmethod
+    def _response(rows, request, response_status=status.HTTP_200_OK):
+        serializer = BoardToolStatusSerializer(
+            rows,
+            many=True,
+            context={"request": request},
+        )
+        response = Response(serializer.data, status=response_status)
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
+class BoardToolStatusListView(BoardToolStatusBoardMixin, APIView):
+    """List shared status rows or initialize rows that do not exist yet."""
+
+    permission_classes = [IsAuthenticated]
+    authentication_classes = (TokenAuthentication, SessionAuthentication)
+
+    def get(self, request, board_id):
+        board = self._get_board(request, board_id)
+        rows = BoardToolStatus.objects.filter(board=board).select_related("updated_by")
+        return self._response(rows, request)
+
+    def post(self, request, board_id):
+        """Create only missing rows; existing central values always win."""
+        board = self._get_board(request, board_id)
+        raw_rows = (
+            request.data.get("statuses")
+            if isinstance(
+                request.data,
+                dict,
+            )
+            else None
+        )
+
+        if not isinstance(raw_rows, list):
+            raise serializers.ValidationError(
+                {"statuses": "Provide a list of tool-status rows."}
+            )
+        if not raw_rows:
+            raise serializers.ValidationError(
+                {"statuses": "Provide at least one tool-status row."}
+            )
+        if len(raw_rows) > 8:
+            raise serializers.ValidationError(
+                {"statuses": "At most eight CH/AT tool-status rows are allowed."}
+            )
+
+        input_serializer = BoardToolStatusInitializeItemSerializer(
+            data=raw_rows,
+            many=True,
+        )
+        input_serializer.is_valid(raise_exception=True)
+
+        seen_keys = set()
+        for row in input_serializer.validated_data:
+            key = (row["market"], row["document_type"])
+            if key in seen_keys:
+                raise serializers.ValidationError(
+                    {"statuses": "Each market and document type may appear only once."}
+                )
+            seen_keys.add(key)
+
+        created_any = False
+        with transaction.atomic():
+            locked_board = Board.objects.select_for_update().get(pk=board.pk)
+            for row in input_serializer.validated_data:
+                values = dict(row)
+                market = values.pop("market")
+                document_type = values.pop("document_type")
+                values["updated_by"] = request.user
+                _, created = BoardToolStatus.objects.get_or_create(
+                    board=locked_board,
+                    market=market,
+                    document_type=document_type,
+                    defaults=values,
+                )
+                created_any = created_any or created
+
+        rows = BoardToolStatus.objects.filter(board=board).select_related("updated_by")
+        return self._response(
+            rows,
+            request,
+            status.HTTP_201_CREATED if created_any else status.HTTP_200_OK,
+        )
+
+
+class BoardToolStatusDetailView(BoardToolStatusBoardMixin, APIView):
+    """Partially update one board/market/tool row, creating it if needed."""
+
+    permission_classes = [IsAuthenticated]
+    authentication_classes = (TokenAuthentication, SessionAuthentication)
+
+    def patch(self, request, board_id, market, document_type):
+        board = self._get_board(request, board_id)
+        normalized_market = str(market or "").upper()
+        normalized_type = str(document_type or "").lower()
+
+        errors = {}
+        if normalized_market not in BoardDocument.Market.values:
+            errors["market"] = "Unsupported market."
+        if normalized_type not in BoardDocument.DocumentType.values:
+            errors["document_type"] = "Unsupported document type."
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        with transaction.atomic():
+            locked_board = Board.objects.select_for_update().get(pk=board.pk)
+            row, _ = BoardToolStatus.objects.get_or_create(
+                board=locked_board,
+                market=normalized_market,
+                document_type=normalized_type,
+            )
+            serializer = BoardToolStatusSerializer(
+                row,
+                data=request.data,
+                partial=True,
+                context={"request": request},
+            )
+            serializer.is_valid(raise_exception=True)
+            row = serializer.save(updated_by=request.user)
+
+        response = Response(
+            BoardToolStatusSerializer(
+                row,
+                context={"request": request},
+            ).data,
+            status=status.HTTP_200_OK,
+        )
+        response["Cache-Control"] = "private, no-store"
+        return response
+
+
 # ======================================================================
 # Debriefing
 # ======================================================================
 
+
 class DebriefingViewSet(viewsets.ModelViewSet):
     """CRUD + Submit‑Action für SFL‑Debriefings."""
+
     queryset = Debriefing.objects.all()
     serializer_class = DebriefingSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = (TokenAuthentication, SessionAuthentication)
 
     def get_queryset(self):
-        return Debriefing.objects.filter(
-            board__in=boards_for_user(self.request.user)
-        )
+        return Debriefing.objects.filter(board__in=boards_for_user(self.request.user))
 
     def perform_create(self, serializer):
         board = serializer.validated_data["board"]
@@ -486,8 +652,9 @@ class DebriefingViewSet(viewsets.ModelViewSet):
         deb = self.get_object()
 
         if deb.status == Debriefing.Status.FINAL:
-            return Response({"detail": "already submitted"},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "already submitted"}, status=status.HTTP_400_BAD_REQUEST
+            )
 
         deb.status = Debriefing.Status.FINAL
         deb.submitted_at = timezone.now()
@@ -503,8 +670,10 @@ class DebriefingViewSet(viewsets.ModelViewSet):
     def pdf(self, request, pk=None):
         deb = self.get_object()
         if deb.status != Debriefing.Status.FINAL:
-            return Response({"detail": "Draft has not been submitted yet."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Draft has not been submitted yet."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         pdf_bytes = generate_pdf(deb)
         filename = f"debriefing_{deb.id}.pdf"
@@ -512,12 +681,15 @@ class DebriefingViewSet(viewsets.ModelViewSet):
         resp["Content-Disposition"] = f'attachment; filename="{filename}"'
         return resp
 
+
 # ======================================================================
 # Graphics‑Rapport
 # ======================================================================
 
+
 class GraphicsRapportViewSet(viewsets.ModelViewSet):
     """CRUD für Graphics‑Rapports (PDF/Submit ggf. später analog)."""
+
     queryset = GraphicsRapport.objects.all()
     serializer_class = GraphicsRapportSerializer
     permission_classes = [IsAuthenticated]
@@ -534,12 +706,15 @@ class GraphicsRapportViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("No permission to create a graphics rapport here.")
         serializer.save(created_by=self.request.user)
 
+
 # ======================================================================
 # Tasks
 # ======================================================================
 
+
 class TaskListCreateView(generics.ListCreateAPIView):
     """List & Create für Tasks (mit Filtern)."""
+
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = (TokenAuthentication, SessionAuthentication)
@@ -576,20 +751,25 @@ class TaskListCreateView(generics.ListCreateAPIView):
             if data.get("reviewer_id"):
                 reviewer = User.objects.get(id=data.pop("reviewer_id"))
         except User.DoesNotExist:
-            return Response({"detail": "Assignee or Reviewer not found."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Assignee or Reviewer not found."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Board prüfen
         board_id = data.get("board")
         try:
             board = Board.objects.get(pk=board_id)
         except Board.DoesNotExist:
-            return Response({"detail": "Board not found."},
-                            status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Board not found."}, status=status.HTTP_404_NOT_FOUND
+            )
 
         if not self._has_board_permission(request.user, board):
-            return Response({"detail": "No permission to create task on this board."},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "No permission to create task on this board."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
@@ -599,18 +779,21 @@ class TaskListCreateView(generics.ListCreateAPIView):
             reviewer=reviewer,
         )
 
-        return Response({
-            "id": task.id,
-            "board": task.board.id,
-            "title": task.title,
-            "description": task.description,
-            "status": task.status,
-            "priority": task.priority,
-            "assignee": self._user_info(task.assignee),
-            "reviewer": self._user_info(task.reviewer),
-            "due_date": task.due_date,
-            "comments_count": task.comments.count(),
-        }, status=status.HTTP_201_CREATED)
+        return Response(
+            {
+                "id": task.id,
+                "board": task.board.id,
+                "title": task.title,
+                "description": task.description,
+                "status": task.status,
+                "priority": task.priority,
+                "assignee": self._user_info(task.assignee),
+                "reviewer": self._user_info(task.reviewer),
+                "due_date": task.due_date,
+                "comments_count": task.comments.count(),
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     def _user_info(self, user: User | None):
         if not user:
@@ -621,8 +804,10 @@ class TaskListCreateView(generics.ListCreateAPIView):
             "fullname": getattr(user, "full_name", user.email),
         }
 
+
 class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Read/Update/Delete einzelner Task (nur mit Board‑Rechten)."""
+
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
@@ -642,23 +827,30 @@ class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
     def update(self, request, *args, **kwargs):
         task = self.get_object()
         if not self._has_permission(request.user, task):
-            return Response({"detail": "No permission to update this task."},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "No permission to update this task."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         task = self.get_object()
         if not self._has_permission(request.user, task):
-            return Response({"detail": "No permission to delete this task."},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "No permission to delete this task."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         return super().destroy(request, *args, **kwargs)
+
 
 # ======================================================================
 # Comments
 # ======================================================================
 
+
 class CommentListCreateView(generics.ListCreateAPIView):
     """Kommentare zu einem Task (List/Create)."""
+
     serializer_class = CommentSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = (TokenAuthentication, SessionAuthentication)
@@ -693,8 +885,7 @@ class CommentListCreateView(generics.ListCreateAPIView):
         if recipients:
             send_mail(
                 subject=(
-                    f"[MM Strategic Assortment] New comment on task: "
-                    f"{task.title}"
+                    f"[MM Strategic Assortment] New comment on task: " f"{task.title}"
                 ),
                 message=(
                     "Hi,\n\n"
@@ -716,8 +907,10 @@ class CommentListCreateView(generics.ListCreateAPIView):
         except Task.DoesNotExist:
             raise NotFound("Task not found.")
 
+
 class CommentDeleteView(generics.DestroyAPIView):
     """Kommentar löschen (Author, Superuser oder BBM)."""
+
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
     permission_classes = [IsAuthenticated]
@@ -737,16 +930,21 @@ class CommentDeleteView(generics.DestroyAPIView):
         comment = self.get_object()
         user = request.user
         if not (user == comment.author or user.is_superuser):
-            return Response({"detail": "No permission to delete this comment."},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "No permission to delete this comment."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         return super().destroy(request, *args, **kwargs)
+
 
 # ======================================================================
 # User‑bezogene Task‑Listen
 # ======================================================================
 
+
 class AssignedToMeTaskListView(generics.ListAPIView):
     """Alle Tasks, bei denen der User Assignee oder Reviewer ist."""
+
     serializer_class = TaskListSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = (TokenAuthentication, SessionAuthentication)
@@ -757,8 +955,10 @@ class AssignedToMeTaskListView(generics.ListAPIView):
             models.Q(assignee=user) | models.Q(reviewer=user)
         ).distinct()
 
+
 class ReviewingTaskListView(generics.ListAPIView):
     """Alle Tasks, die der User reviewt."""
+
     serializer_class = TaskListSerializer
     permission_classes = [IsAuthenticated]
     authentication_classes = (TokenAuthentication, SessionAuthentication)
@@ -766,20 +966,25 @@ class ReviewingTaskListView(generics.ListAPIView):
     def get_queryset(self):
         return Task.objects.filter(reviewer=self.request.user)
 
+
 # ======================================================================
 # Misc
 # ======================================================================
 
+
 class EmailCheckView(generics.GenericAPIView):
     """Prüft, ob eine E‑Mail im User‑Model existiert."""
+
     permission_classes = [IsAuthenticated]
     authentication_classes = (TokenAuthentication, SessionAuthentication)
 
     def get(self, request, *args, **kwargs):
         email = request.query_params.get("email")
         if not email:
-            return Response({"detail": "Email query parameter is required."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Email query parameter is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
             user = User.objects.get(email=email)
             data = {
@@ -789,12 +994,15 @@ class EmailCheckView(generics.GenericAPIView):
             }
             return Response(data, status=status.HTTP_200_OK)
         except User.DoesNotExist:
-            return Response({"detail": "Email not found."},
-                            status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Email not found."}, status=status.HTTP_404_NOT_FOUND
+            )
+
 
 # ======================================================================
 # Key/Value‑API (für Kits/Staff‑Listen, serverseitige Persistenz)
 # ======================================================================
+
 
 @api_view(["GET", "PUT", "DELETE"])
 @permission_classes([IsAuthenticated])
@@ -816,7 +1024,9 @@ def kv_state(request, key: str):
     if request.method == "PUT":
         data = request.data
         payload = data.get("value", data)
-        kv, created = KVStore.objects.get_or_create(key=key, defaults={"value": payload})
+        kv, created = KVStore.objects.get_or_create(
+            key=key, defaults={"value": payload}
+        )
         if not created:
             kv.value = payload
         kv.save()
@@ -826,9 +1036,11 @@ def kv_state(request, key: str):
     KVStore.objects.filter(key=key).delete()
     return Response({"ok": True}, status=200)
 
+
 # ======================================================================
 # Roster‑Endpoint (Basisdaten für Staff & Player Pics)
 # ======================================================================
+
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -850,14 +1062,16 @@ def roster(request):
             norm = []
             for idx, p in enumerate(raw):
                 pid = p.get("id") or f"base-{club}-{idx}"
-                norm.append({
-                    "id": pid,
-                    "number": p.get("number") or "",
-                    "first_name": p.get("first_name") or "",
-                    "last_name": p.get("last_name") or "",
-                    "on_air_name": p.get("on_air_name") or "",
-                    "portrait_present": bool(p.get("portrait_present")),
-                })
+                norm.append(
+                    {
+                        "id": pid,
+                        "number": p.get("number") or "",
+                        "first_name": p.get("first_name") or "",
+                        "last_name": p.get("last_name") or "",
+                        "on_air_name": p.get("on_air_name") or "",
+                        "portrait_present": bool(p.get("portrait_present")),
+                    }
+                )
             players = norm
         except KVStore.DoesNotExist:
             players = []
